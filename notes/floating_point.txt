@@ -91,32 +91,32 @@ Binary rounding:
 
         Halfway cases:
             Round to nearest int:
-            n = 2.5
-            n is halfway between 2 & 3 
-            round(n) = 2, since even 
+                n = 2.5
+                n is halfway between 2 & 3 
+                round(n) = 2, since even 
 
             Round to nearest hundredth:
-            1. n = 7.88500 
-            round(n) = 7.88 
-            Because:
-                7.88500                       |   7.8 8|5 0 0
-                    ^                         |       ^
-                    halfway b/w 7.88 & 7.89   |       LSB = even, so to keep it even 
-                                                            round down(i.e just truncate)
+                1. n = 7.88500 
+                round(n) = 7.88 
+                Because:
+                    7.88500                       |   7.8 8|5 0 0
+                        ^                         |       ^
+                        halfway b/w 7.88 & 7.89   |       LSB = even, so to keep it even 
+                                                                round down(i.e just truncate)
 
-                7.88|500 <- truncate
+                    7.88|500 <- truncate
 
-            2. n = 7.87500
-            round(n) = 7.88
-            Because:
-                7.87500                       |   7.8 7|5 0 0
-                    ^                         |       ^
-                    halfway b/w 7.87 & 7.88   |       LSB = odd, so round up to make it even 
+                2. n = 7.87500
+                round(n) = 7.88
+                Because:
+                    7.87500                       |   7.8 7|5 0 0
+                        ^                         |       ^
+                        halfway b/w 7.87 & 7.88   |       LSB = odd, so round up to make it even 
 
-                7.87500
-               +0.005
-                -------
-                7.88000
+                    7.87500
+                   +0.005
+                    -------
+                    7.88000
 
 
     Binary: 
@@ -137,46 +137,46 @@ Binary rounding:
             - Diff b/w n and rounded n = 0.25 
         }
 
-        1. let n = 10.00011 
-        round(n) = 10.00 (rounded down)
-        Because:
-            10.00011
-                 ^
-                 011 is less than halfway
-
-            10. 0 0 |0 1 1 <- truncate
-
-        2. let n = 10.00110
-        round(n) = 10.01 (rounded up)
-        Because:
-            10.00110
-                 ^
-                 11 is greater than halfway
-
-            10.0 0|1 1 0
-            +0.0 0 1
-            ------------
-            10.0 1|0 1 0 <- truncate
-
-        3. let n = 10.11100 
-        round(n) = 11.00 
-        Because:
-            10.11|100                         |   10.1 1 1 0 0
-                  ^                           |        ^
-                  10..0 pattern = halfway     |        LSB = odd, so round up 
-
-            10.1 1 |1 0 0 
-            +0.0 0 |1
-            -------------
-            11.0 0 |0 0 0 <- truncate
-
-        4. let n = 10.10100 
-        round(n) = 10.10 
-        Because: 
-            10.10|100                         |   10.1 0 1 0 0
-                  ^                           |        ^
-                  10..0 pattern = halfway     |        LSB = even, so round down
-
-            10.1 0 |1 0 0 <- truncate
+            1. let n = 10.00011 
+            round(n) = 10.00 (rounded down)
+            Because:
+                10.00011
+                     ^
+                     011 is less than halfway
+    
+                10. 0 0 |0 1 1 <- truncate
+    
+            2. let n = 10.00110
+            round(n) = 10.01 (rounded up)
+            Because:
+                10.00110
+                     ^
+                     11 is greater than halfway
+    
+                10.0 0|1 1 0
+                +0.0 0 1
+                ------------
+                10.0 1|0 1 0 <- truncate
+    
+            3. let n = 10.11100 
+            round(n) = 11.00 
+            Because:
+                10.11|100                         |   10.1 1 1 0 0
+                      ^                           |        ^
+                      10..0 pattern = halfway     |        LSB = odd, so round up 
+    
+                10.1 1 |1 0 0 
+                +0.0 0 |1
+                -------------
+                11.0 0 |0 0 0 <- truncate
+    
+            4. let n = 10.10100 
+            round(n) = 10.10 
+            Because: 
+                10.10|100                         |   10.1 0 1 0 0
+                      ^                           |        ^
+                      10..0 pattern = halfway     |        LSB = even, so round down
+    
+                10.1 0 |1 0 0 <- truncate
                      
         
