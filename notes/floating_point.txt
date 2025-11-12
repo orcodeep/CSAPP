@@ -143,40 +143,79 @@ Binary rounding:
                 10.00011
                      ^
                      011 is less than halfway
-    
+
                 10. 0 0 |0 1 1 <- truncate
-    
+
             2. let n = 10.00110
             round(n) = 10.01 (rounded up)
             Because:
                 10.00110
                      ^
                      11 is greater than halfway
-    
+
                 10.0 0|1 1 0
                 +0.0 0 1
                 ------------
                 10.0 1|0 1 0 <- truncate
-    
+
             3. let n = 10.11100 
             round(n) = 11.00 
             Because:
                 10.11|100                         |   10.1 1 1 0 0
                       ^                           |        ^
                       10..0 pattern = halfway     |        LSB = odd, so round up 
-    
+
                 10.1 1 |1 0 0 
                 +0.0 0 |1
                 -------------
                 11.0 0 |0 0 0 <- truncate
-    
+
             4. let n = 10.10100 
             round(n) = 10.10 
             Because: 
                 10.10|100                         |   10.1 0 1 0 0
                       ^                           |        ^
                       10..0 pattern = halfway     |        LSB = even, so round down
-    
+
                 10.1 0 |1 0 0 <- truncate
                      
-        
+
+Casting:
+    casting from int to float or double is truncation of fractional part 
+
+    int -> double or float casting:
+        - exp bits store the scale or magnitude of the number 
+          it tells the hardware where to put the binary point relative to mantissa.
+
+        - frac bits store the significant bits of the number essentially the 
+          precision bits.
+
+        Example:
+        -25678 = 1[15x0]0110010001111110 
+
+        Normalize to floating point: 25678.0 = 1.100100001111110 * 2^14 
+        exp = 14 + 126 (stored in exp bits)
+
+        The 100100001111110 part goes in frac bits. (The 1 before the binary point is
+        not stored). That's the hidden precision that IEEE standard provides.
+
+        S = 1 because -ve number.
+
+        int to double:
+            There will be no loss of precision because the 32bits of the int 
+            fit in the frac bits of the double.
+            - As an int can have values of magnitude:- 2^(31) - 1
+              and a double has 53 frac bits.
+
+        int to float:
+            But a float has 23 frac bits so it can store ints upto 2^24
+            without loss of precision. (2^24 because 1 hidden bit) 
+            That means any int larger than 2^24 may be a little less precise.
+            Example:
+                int n = 2100083999 ;
+                float f = (float) n;
+                n = (int) f;
+                now n = 2100083136. Rounding error = 863
+                * Rounding error diff for diff numbers
+                  - for Example if we store 2^(31) - 1 in a float
+                    Rounding error only = 1
