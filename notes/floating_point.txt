@@ -132,8 +132,8 @@ Binary rounding:
         round(n) = 10.00 (rounded down)
         Because:
             10.00011
-                    ^
-                    011 is less than halfway
+                 ^
+                 011 is less than halfway
 
             10. 0 0 |0 1 1 <- truncate
 
@@ -141,8 +141,8 @@ Binary rounding:
         round(n) = 10.01 (rounded up)
         Because:
             10.00110
-                    ^
-                    11 is greater than halfway
+                 ^
+                 11 is greater than halfway
 
             10.0 0 |1 1 0 <- truncate
             +0.0 1
@@ -153,8 +153,8 @@ Binary rounding:
         round(n) = 11.00 
         Because:
             10.11|100                         |   10.1 1 1 0 0
-                    ^                         |        ^
-                    10..0 pattern = halfway   |        LSB = odd, so round up 
+                  ^                           |        ^
+                  10..0 pattern = halfway     |        LSB = odd, so round up 
 
             10.1 1 |1 0 0 <- truncate
             +0.0 1
@@ -165,8 +165,8 @@ Binary rounding:
         round(n) = 10.10 
         Because: 
             10.10|100                         |   10.1 0 1 0 0
-                    ^                         |        ^
-                    10..0 pattern = halfway   |        LSB = even, so round down
+                  ^                           |        ^
+                  10..0 pattern = halfway     |        LSB = even, so round down
 
             10.1 0 |1 0 0 <- truncate
                      
