@@ -6,13 +6,15 @@ For numbers >= snpn:
       S  -> Sign (0 or 1)
       E  -> exp - bias 
         exp -> decimal value of exp bits 
+        exp bits -> can never be 000...0 or 111...1
         bias = 2^(k-1) - 1, k = number of exp bits 
 
-      E     -> -126 to 127 
+      E     -> -126 to 127 if k = 8
       Emin  -> -126 (exp bits = 000..1) 
 
       M  -> (1 + frac)
-    frac -> decimal Value of frac bits (0 to 1 - e) 
+    frac -> decimal Value of frac bits (0 to 1 - e) [e->epsilon]
+    1-e  -> value just less than 1
     frac bits -> 2^-1 2^-2 .... 2^-22 
 
 Convert 5.5 to binary: 
@@ -62,5 +64,16 @@ Convert 1.5 to binary:
 
         Value = (-1)^0 * (1 + 0.5) * 2^0
               = 1.5
+
+For Denormalised values: (Form -> 0.xxx) 
+    |values| -> 0 to 1 - e 
+
+      M  = frac 
+     exp bits -> 000...0 
+     exp = 0
+      E  = 1 - bias(= 127 if k = 8) 
+         = 1 - 127 = -126 
+         = Emin 
+    Value = (-1)^S * M * 2^(Emin)
 
 
