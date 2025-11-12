@@ -79,40 +79,49 @@ For Denormalised values: (Form -> 0.xxx)
 Binary rounding: 
     IEEE default: 
         Round to nearest 
-        If halfway case, round to even LSB 
+        But if halfway case, round to even LSB 
 
     Decimal:
-        Round to nearest int:
-        n = 2.5
-        n is halfway between 2 & 3 
-        round(n) = 2, since even 
+        n = 2.4
+        round(n) = 2
 
-        Round to nearest hundredth:
-        1. n = 7.88500 
-        round(n) = 7.88 
-        Because:
-            7.88500                       |   7.8 8|5 0 0
-                ^                         |       ^
-                halfway b/w 7.88 & 7.89   |       LSB = even, so to keep it even 
-                                                        round down(i.e just truncate)
+        n = 2.6
+        round(n) = 3
 
-            7.88|500 <- truncate
 
-        2. n = 7.87500
-        round(n) = 7.88
-        Because:
-            7.87500                       |   7.8 7|5 0 0
-                ^                         |       ^
-                halfway b/w 7.87 & 7.88   |       LSB = odd, so round up to make it even 
+        Halfway cases:
+            Round to nearest int:
+            n = 2.5
+            n is halfway between 2 & 3 
+            round(n) = 2, since even 
 
-            7.87500
-           +0.005
-            -------
-            7.88000
+            Round to nearest hundredth:
+            1. n = 7.88500 
+            round(n) = 7.88 
+            Because:
+                7.88500                       |   7.8 8|5 0 0
+                    ^                         |       ^
+                    halfway b/w 7.88 & 7.89   |       LSB = even, so to keep it even 
+                                                            round down(i.e just truncate)
+
+                7.88|500 <- truncate
+
+            2. n = 7.87500
+            round(n) = 7.88
+            Because:
+                7.87500                       |   7.8 7|5 0 0
+                    ^                         |       ^
+                    halfway b/w 7.87 & 7.88   |       LSB = odd, so round up to make it even 
+
+                7.87500
+               +0.005
+                -------
+                7.88000
+
 
     Binary: 
         0 = even, 1 = odd 
-        round up: truncate binary digits after LSB pos and +1 at LSB pos 
+        round up: truncate binary digits after LSB pos and add 1 at LSB_pos + 1
         round down: truncate b digits after LSB pos 
 
         if halfway: (i.e pattern = 100..0 after LSB pos)
@@ -144,10 +153,10 @@ Binary rounding:
                  ^
                  11 is greater than halfway
 
-            10.0 0 |1 1 0 <- truncate
-            +0.0 1
-            -------
-            10.0 1
+            10.0 0|1 1 0
+            +0.0 0 1
+            ------------
+            10.0 1|0 1 0 <- truncate
 
         3. let n = 10.11100 
         round(n) = 11.00 
@@ -156,10 +165,10 @@ Binary rounding:
                   ^                           |        ^
                   10..0 pattern = halfway     |        LSB = odd, so round up 
 
-            10.1 1 |1 0 0 <- truncate
-            +0.0 1
-            -------
-            11.0 0
+            10.1 1 |1 0 0 
+            +0.0 0 |1
+            -------------
+            11.0 0 |0 0 0 <- truncate
 
         4. let n = 10.10100 
         round(n) = 10.10 
@@ -170,10 +179,4 @@ Binary rounding:
 
             10.1 0 |1 0 0 <- truncate
                      
-                
-               
-
-                
-                    
-            
-    
+        
