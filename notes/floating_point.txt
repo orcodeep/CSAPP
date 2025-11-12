@@ -181,9 +181,10 @@ Binary rounding:
                      
 
 Casting:
-    casting from int to float or double is truncation of fractional part 
+    float or double -> int casting is truncation of fractional part 
 
     int -> double or float casting:
+    
         - exp bits store the scale or magnitude of the number 
           it tells the hardware where to put the binary point relative to mantissa.
 
