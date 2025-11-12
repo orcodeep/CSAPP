@@ -202,10 +202,11 @@ Casting:
         S = 1 because -ve number.
 
         int to double:
-            There will be no loss of precision because the 32bits of the int 
+            There will be no loss of precision because the 31 bits of the int 
             fit in the frac bits of the double.
             - As an int can have values of magnitude:- 2^(31) - 1
-              and a double has 53 frac bits.
+              and a double has 53 frac bits. 
+              32nd bit of the int is stored as sign bit.
 
         int to float:
             But a float has 23 frac bits so it can store ints upto 2^24
