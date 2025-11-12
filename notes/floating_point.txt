@@ -106,7 +106,7 @@ Binary rounding:
                 halfway b/w 7.87 & 7.88   |       LSB = odd, so round up to make it even 
 
             7.87500
-            + 0.005
+          + 0.005
             --------
             7.88000
 
