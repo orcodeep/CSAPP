@@ -98,7 +98,7 @@ Binary rounding:
             Round up to nearest quarter: (2 bit to the right of binary point)
             i.e { 
                 if n = 1011.xxxx 
-                - rounded n = 1234.xx 
+                - rounded n = 1011.xx 
                 &
                 - Diff b/w n and rounded n = 0.25 
             }
