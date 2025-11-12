@@ -139,9 +139,9 @@ Binary rounding:
             4. let n = 10.10100 
             round(n) = 10.10 
             Because: 
-                10.10100                       |   10.1 0 1 0 0
-                     ^                         |        ^
-                     10..0 pattern = halfway   |        LSB = even, so round down
+                10.10|100                       |   10.1 0 1 0 0
+                      ^                         |        ^
+                      10..0 pattern = halfway   |        LSB = even, so round down
 
                 10.1 0 |1 0 0 <- truncate
                      
