@@ -106,8 +106,8 @@ Binary rounding:
                 halfway b/w 7.87 & 7.88   |       LSB = odd, so round up to make it even 
 
             7.87500
-          + 0.005
-            --------
+           +0.005
+            -------
             7.88000
 
     Binary: 
@@ -145,7 +145,7 @@ Binary rounding:
                     11 is greater than halfway
 
             10.0 0 |1 1 0 <- truncate
-            + 0.0 1
+            +0.0 1
             -------
             10.0 1
 
@@ -157,7 +157,7 @@ Binary rounding:
                     10..0 pattern = halfway   |        LSB = odd, so round up 
 
             10.1 1 |1 0 0 <- truncate
-            + 0.0 1
+            +0.0 1
             -------
             11.0 0
 
