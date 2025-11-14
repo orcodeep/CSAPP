@@ -1,4 +1,4 @@
-Good Reference for bit and hex representations and conversion b/w them
+Good Reference for Binary and Hex representations and conversion b/w them
 
 <pre>
 H̲E̲X̲ C̲A̲L̲C̲U̲L̲A̲T̲I̲O̲N̲:
