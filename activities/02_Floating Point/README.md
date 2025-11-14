@@ -1,0 +1,223 @@
+For normalized numbers exp bits cant be all 0s or all 1s
+Smallest normalized positive number (snpn) = 1
+For |numbers| >= snpn & not infinity(exp bits = 111...1):
+    Value = (-1)^S * M * 2^E 
+      S  -> Sign (0 or 1)
+      E  -> exp - bias 
+        exp -> decimal value of exp bits 
+        exp bits -> can never be 000...0 or 111...1
+        bias = 2^(k-1) - 1, k = number of exp bits 
+
+      E     -> -126 to 127 if k = 8
+      Emin  -> -126 (exp bits = 000..1) 
+
+      M  -> (1 + frac)
+    frac -> decimal Value of frac bits (0 to 1 - e) [e->epsilon]
+    1-e  -> value just less than 1
+    frac bits -> 2^-1 2^-2 .... 2^-22 
+
+Convert 5.5 to binary: 
+    5 in binary:   101 
+    0.5 in binary: 0.1 
+    5.5  = 101.1 in base 2 
+    S = 0
+
+    Normalize to 1.xxx form:
+        101.1 = 10.11 * 2 
+              = 1.011 * 2^2
+
+        E = 2
+        M = 1.011 = 1 + 0.011 
+        frac bits = 01100...0 
+        frac = 0*2^-1 + 1*2^-2 + 1*2^-3
+             = 0 + 0.25 + 0.125
+             = 0.375 
+
+    verify: 
+        S = 0
+        frac = 0.375 
+        E = 2 
+        
+        Value = (-1)^0 * (1 + 0.375) * 2^2
+              = 5.5
+
+Convert 1.5 to binary:
+    1 in binary:   1
+    0.5 in binary: 0.1
+    1.5 = 1.1 in base 2 
+    S = 0
+
+    Normalize to 1.xxx form:
+        1.1 = 1.1 * 2^0 already in form 
+
+        E = 0
+        M = 1.1 = 1 + 0.1
+        frac bits = 100...0
+        frac = 1*2^-1
+             = 0.5
+
+    verify:
+        S = 0
+        frac = 0.5
+        E = 0
+
+        Value = (-1)^0 * (1 + 0.5) * 2^0
+              = 1.5
+
+For Denormalised values: (Form -> 0.xxx) 
+    |values| -> 0 to 1 - e 
+
+      M  = frac 
+     exp bits -> 000...0 
+     exp = 0
+      E  = 1 - bias(= 127 if k = 8) 
+         = 1 - 127 = -126 
+         = Emin 
+    Value = (-1)^S * M * 2^(Emin)
+
+
+Binary rounding: 
+    IEEE default: 
+        Round to nearest 
+        But if halfway case, round to even LSB 
+
+    Decimal:
+        n = 2.4
+        round(n) = 2
+
+        n = 2.6
+        round(n) = 3
+
+
+        Halfway cases:
+            Round to nearest int:
+                n = 2.5
+                n is halfway between 2 & 3 
+                round(n) = 2, since even 
+
+            Round to nearest hundredth:
+                1. n = 7.88500 
+                round(n) = 7.88 
+                Because:
+                    7.88500                       |   7.8 8|5 0 0
+                        ^                         |       ^
+                        halfway b/w 7.88 & 7.89   |       LSB = even, so to keep it even 
+                                                                round down(i.e just truncate)
+
+                    7.88|500 <- truncate
+
+                2. n = 7.87500
+                round(n) = 7.88
+                Because:
+                    7.87500                       |   7.8 7|5 0 0
+                        ^                         |       ^
+                        halfway b/w 7.87 & 7.88   |       LSB = odd, so round up to make it even 
+
+                    7.87500
+                   +0.005
+                    -------
+                    7.88000
+
+
+    Binary: 
+        0 = even, 1 = odd 
+        round up: truncate binary digits after LSB pos and add 1 at LSB_pos + 1
+        round down: truncate b digits after LSB pos 
+
+        if halfway: (i.e pattern = 100..0 after LSB pos)
+            if LSB   = 0 (even) {round down}
+            elif LSB = 1 (odd)  {roundn up} 
+
+        Example:
+        Round up to nearest quarter: (2 bit to the right of binary point)
+        i.e { 
+            if n = 1011.xxxx 
+            - rounded n = 1011.xx 
+            &
+            - Diff b/w n and rounded n = 0.25 
+        }
+
+            1. let n = 10.00011 
+            round(n) = 10.00 (rounded down)
+            Because:
+                10.00011
+                     ^
+                     011 is less than halfway
+
+                10. 0 0 |0 1 1 <- truncate
+
+            2. let n = 10.00110
+            round(n) = 10.01 (rounded up)
+            Because:
+                10.00110
+                     ^
+                     11 is greater than halfway
+
+                10.0 0|1 1 0
+                +0.0 0 1
+                ------------
+                10.0 1|0 1 0 <- truncate
+
+            3. let n = 10.11100 
+            round(n) = 11.00 
+            Because:
+                10.11|100                         |   10.1 1 1 0 0
+                      ^                           |        ^
+                      10..0 pattern = halfway     |        LSB = odd, so round up 
+
+                10.1 1 |1 0 0 
+                +0.0 0 |1
+                -------------
+                11.0 0 |0 0 0 <- truncate
+
+            4. let n = 10.10100 
+            round(n) = 10.10 
+            Because: 
+                10.10|100                         |   10.1 0 1 0 0
+                      ^                           |        ^
+                      10..0 pattern = halfway     |        LSB = even, so round down
+
+                10.1 0 |1 0 0 <- truncate
+                     
+
+Casting:
+    float or double -> int casting is truncation of fractional part 
+
+    int -> double or float casting:
+    
+        - exp bits store the scale or magnitude of the number 
+          it tells the hardware where to put the binary point relative to mantissa.
+
+        - frac bits store the significant bits of the number essentially the 
+          precision bits.
+
+        Example:
+        -25678 = 1[15x0]0110010001111110 
+
+        Normalize to floating point: 25678.0 = 1.100100001111110 * 2^14 
+        exp = 14 + 126 (stored in exp bits)
+
+        The 100100001111110 part goes in frac bits. (The 1 before the binary point is
+        not stored). That's the hidden precision that IEEE standard provides.
+
+        S = 1 because -ve number.
+
+        int to double:
+            There will be no loss of precision because the 31 bits of the int 
+            fit in the frac bits of the double.
+            - As an int can have values of magnitude:- 2^(31) - 1
+              and a double has 53 frac bits. 
+              32nd bit of the int is stored as sign bit.
+
+        int to float:
+            But a float has 23 frac bits so it can store ints upto 2^24
+            without loss of precision. (2^24 because 1 hidden bit) 
+            That means any int larger than 2^24 may be a little less precise.
+            Example:
+                int n = 2100083999 ;
+                float f = (float) n;
+                n = (int) f;
+                now n = 2100083136. Rounding error = 863
+                * Rounding error diff for diff numbers
+                  - for Example if we store 2^(31) - 1 in a float
+                    Rounding error only = 1
