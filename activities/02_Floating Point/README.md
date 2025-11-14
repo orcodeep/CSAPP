@@ -1,3 +1,4 @@
+<pre>
 For normalized numbers exp bits cant be all 0s or all 1s
 Smallest normalized positive number (snpn) = 1
 For |numbers| >= snpn & not infinity(exp bits = 111...1):
@@ -221,3 +222,4 @@ Casting:
                 * Rounding error diff for diff numbers
                   - for Example if we store 2^(31) - 1 in a float
                     Rounding error only = 1
+</pre>
