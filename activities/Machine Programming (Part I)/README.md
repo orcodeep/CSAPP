@@ -14,6 +14,6 @@ $rsp → starting at the current stack pointer
 
 8d → print 8 decimal integers in sequence from that address  
 
-Size of each unit:
-d means signed 4-byte (32-bit) integer by default.
+Size of each unit:  
+d means signed 4-byte (32-bit) integer by default.  
 So x/8d shows 8 × 4 bytes = 32 bytes in total.

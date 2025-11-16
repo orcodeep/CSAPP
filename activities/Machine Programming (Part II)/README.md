@@ -5,6 +5,7 @@ test clears: CF = 0, OF = 0
 call cmovc(32767, 1) = 0 not 1<br>
 Because:-<br>
 cmovc:
+
     mov    $0x0,%eax
     test   %di,%di
     cmovb  %esi,%eax
@@ -30,4 +31,4 @@ Flags:
     (test always clears overflow)
 
 test clears the CF flag<br>
-so %esi = 1 is not moved into %eax before returning 
+so %esi = 1 is not moved into %eax before returning .
