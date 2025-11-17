@@ -36,11 +36,14 @@ call sscanf
 
 Clues that these leas are for locals:
 
-  1. Small offsets from %rsp after the function allocated stack space (sub $0x18, %rsp).  
-      The compiler reserved 24 bytes for locals.  
+  1. lea doesnt deref the registers. It did arithmathic operations on the address
+     stored in the registers to calculate another address and passed it to rdx, rcx.
+     rcx, rdx are pointers to the addresses %rsp+0x8 and %rsp+0xc
+
+  2.  The compiler reserved 24 bytes for locals.  
       %rsp + 8 and %rsp + 12 are inside that reserved area.  
 
-  2. The registers are passed to a function expecting pointers, like scanf/sscanf
+  3. The registers are passed to a function expecting pointers, like scanf/sscanf
 </pre>
 0x18 -> 24 bytes allocated.<br>
 `x/6dw $rsp` shows all the values as decimals in the 24bytes alloated space
@@ -53,9 +56,9 @@ Probable func signature used here:-
 `lea    0xc(%rsp),%rcx ` is the 4th arg (the &b)<br>
 `lea    0x8(%rsp),%rdx ` is the 3rd arg (the &a)<br>
 `mov    $0x4025cf,%esi ` is the "%d %d" string literal (2nd argument for sscanf)
-
-According to :
 <pre>
+According to :
+
 Argument #	Register (64-bit)
 1	%rdi
 2	%rsi
@@ -65,8 +68,10 @@ Argument #	Register (64-bit)
 6	%r9
 </pre>
 
-As after sscanf returns: (input given = 1 2 3)
+As after sscanf returns: 
 <pre>
+(input given = 1 2 3)
+
 (gdb) x/dw $rsp+0xc 
 0x7fffffffdedc: 2 
 
@@ -89,6 +94,7 @@ As after sscanf returns: (input given = 1 2 3)
 0x4025cf: 37 'd'
 </pre>
 
+
 `phase_3 has 7 correct answers.`
 
 The main instructions to look at are:-
@@ -108,4 +114,9 @@ jmp    *0x402470(,%rax,8)
 `CF` looks at the operands in `unsigned` terms (whether the operands would require a borrow).
 
 `OF`, `ZF`, and `SF` look at the `signed` result of the subtraction (whether the result is negative, zero, or whether an overflow occurred in signed terms).
+
+# In phase_4:
+
+`Found 3 correct answers`
+
 
