@@ -175,11 +175,12 @@ Then `cmpb $0x0,(%rdi)`:
 
 `<string_length>`:
 
-It checks for the whole string if '\0' or 0x0 is reached <br>
-when %rdx contains "" i.e an empty string<br>
-(In C/assembly, an empty string contains exactly one byte<br>
- 0x00   ← the null terminator) it returns<br>
-and it put the strlength in %eax 
+- It checks for the whole string if '\0' or 0x0 is reached <br>
+  when %rdx contains "" i.e an empty string
+
+  (In C/assembly, an empty string contains exactly one byte<br>
+   0x00   ← the null terminator) it returns<br>
+  and it put the strlength in %eax 
 
 
 `movzbl (%rbx,%rax,1),%ecx` Reads 1 byte from `memory[rbx+rax*1]`,<br>
@@ -198,7 +199,7 @@ Main instructions to look at:
        which is based on the input given. 
     
     3. <phase_5+55>, <phase_5+62>
-    
+
 
 `When ans to phase_5 is put in the inputs file `<br>
 `it should be made sure that there are no trailing  spaces`
