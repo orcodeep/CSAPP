@@ -192,15 +192,16 @@ and it put the strlength in %eax
 `phase_5 can have many answers`
 
 Main instructions to look at:
-<pre>
-1. Understanding what strings_not_equal is doing, 
-   what it returns in eax especially what are its arguments.
 
-2. <phase_5+41> to <phase_5+52> it is doing some calculation
-   which is based on the input given. 
+    1. Understanding what strings_not_equal is doing,  
+       what it returns in eax especially what are its arguments.
+    
+    2. <phase_5+41> to <phase_5+52> it is doing some calculation  
+       which is based on the input given. 
+    
+    3. <phase_5+55>, <phase_5+62>
 
-3. <phase_5+55>, <phase_5+62>
-</pre>
+
 
 `When ans to phase_5 is put in the inputs file `<br>
 `it should be made sure that there are no trailing  spaces`
