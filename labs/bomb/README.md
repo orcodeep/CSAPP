@@ -183,7 +183,7 @@ Then `cmpb $0x0,(%rdi)`:
   and it put the strlength in %eax 
 
 
-`movzbl (%rbx,%rax,1),%ecx` Reads 1 byte from `memory[rbx+rax*1]`,<br>
+`movzbl (%rbx,%rax,1),%ecx` Reads 1 byte from `memory[rbx+rax*1]`,
 `zero-extends` it to 32 bits, and stores it in %ecx
 
 `cl` is the lowest (least significant) byte of the 32-bit register ecx
@@ -201,5 +201,5 @@ Main instructions to look at:
     3. <phase_5+55>, <phase_5+62>
 
 
-`When ans to phase_5 is put in the inputs file `<br>
-`it should be made sure that there are no trailing  spaces`
+`When ans to phase_5 is put in the inputs file it should be made sure that there are no trailing spaces`
+
