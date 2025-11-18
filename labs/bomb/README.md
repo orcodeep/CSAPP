@@ -141,39 +141,37 @@ in main() and manipulates the characters directly.
 (gdb) x/s $rdi 
 0x6038c0 <input_strings+320>:   "Hello"
 </pre>
-
 %rdi contains the address of the string "Hello", 
-<pre>
-(gdb) x/x $rdi 
-0x6038c0 <input_strings+320>:   0x48 (which is H)
 
-(gdb) x/x $rdi+0x1 
-0x6038c1 <input_strings+321>:   0x65 (which is e)
+    (gdb) x/x $rdi  
+    0x6038c0 <input_strings+320>:   0x48 (which is H)
 
-(gdb) x/x $rdi+0x2 
-0x6038c2 <input_strings+322>:   0x6c (which is l)
+    (gdb) x/x $rdi+0x1  
+    0x6038c1 <input_strings+321>:   0x65 (which is e)
 
-(gdb) x/x $rdi+0x3 
-0x6038c3 <input_strings+323>:   0x6c 
+    (gdb) x/x $rdi+0x2  
+    0x6038c2 <input_strings+322>:   0x6c (which is l)
 
-(gdb) x/x $rdi+0x4 
-0x6038c4 <input_strings+324>:   0x6f (which is o)
-</pre>
+    (gdb) x/x $rdi+0x3  
+    0x6038c3 <input_strings+323>:   0x6c 
+
+    (gdb) x/x $rdi+0x4  
+    0x6038c4 <input_strings+324>:   0x6f (which is o)
+
 
 Then `cmpb $0x0,(%rdi)`:
 
-Dereferences %rdi → reads the first byte at that address
+- Dereferences %rdi → reads the first byte at that address
 
-The first byte of "Hello" is 'H'<br>
-cmp reads 8bits of that word which is still:-<br>
-1001000
-(ASCII of 'H' = 0x48 = 72 decimal.)
+- The first byte of "Hello" is 'H'<br>
+  cmp reads 8bits of that word which is still:-<br>
+  1001000 (ASCII of 'H' = 0x48 = 72 decimal.)
 
-Reads the value at %rdi → 72 ('H')
+- Reads the value at %rdi → 72 ('H')
 
-Compares it to 0 → obviously not equal
+- Compares it to 0 → obviously not equal
 
-Zero flag (ZF) = 0
+- Zero flag (ZF) = 0
 
 `<string_length>`:
 
@@ -200,8 +198,7 @@ Main instructions to look at:
        which is based on the input given. 
     
     3. <phase_5+55>, <phase_5+62>
-
-
+    
 
 `When ans to phase_5 is put in the inputs file `<br>
 `it should be made sure that there are no trailing  spaces`
