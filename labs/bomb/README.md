@@ -1,3 +1,5 @@
+`There should be a newline character after each answer in the inputs file`
+
 # In phase_2:
 
     0x0000000000400f25 <+41>:    add    $0x4,%rbx
@@ -15,6 +17,8 @@ This makes sure all the elements of the array are checked before jumping to phas
 cmp %rbp,%rbx sets ZF=1 if addr[rbx]==addr[rbp]
 when ZF=1, jne=false => jmp will be excuted
 </pre>
+
+The input string is parsed by sscanf inside `<read_six_numbers>` 
 
 Note:
 
@@ -119,4 +123,84 @@ jmp    *0x402470(,%rax,8)
 
 `Found 3 correct answers`
 
+# In phase_5:
 
+phase_5 has no call to sscanf and input string already i %rdi:
+<pre>
+Phase_4 parses the input string using sscanf, 
+extracting numbers according to the format string (like "%d %d").  
+Those numbers are then stored in local variables on the stack, 
+which the phase logic uses.
+
+Phase_5: Like phase_1 It doesn’t parse the input at all. 
+It just takes the string pointer already read by read_line() 
+in main() and manipulates the characters directly.
+
+(input given = Hello)
+
+(gdb) x/s $rdi 
+0x6038c0 <input_strings+320>:   "Hello"
+</pre>
+
+%rdi contains the address of the string "Hello", 
+<pre>
+(gdb) x/x $rdi 
+0x6038c0 <input_strings+320>:   0x48 (which is H)
+
+(gdb) x/x $rdi+0x1 
+0x6038c1 <input_strings+321>:   0x65 (which is e)
+
+(gdb) x/x $rdi+0x2 
+0x6038c2 <input_strings+322>:   0x6c (which is l)
+
+(gdb) x/x $rdi+0x3 
+0x6038c3 <input_strings+323>:   0x6c 
+
+(gdb) x/x $rdi+0x4 
+0x6038c4 <input_strings+324>:   0x6f (which is o)
+</pre>
+
+Then `cmpb $0x0,(%rdi)`:
+
+Dereferences %rdi → reads the first byte at that address
+
+The first byte of "Hello" is 'H'<br>
+cmp reads 8bits of that word which is still:-<br>
+1001000
+(ASCII of 'H' = 0x48 = 72 decimal.)
+
+Reads the value at %rdi → 72 ('H')
+
+Compares it to 0 → obviously not equal
+
+Zero flag (ZF) = 0
+
+`<string_length>`:
+
+It checks for the whole string if '\0' or 0x0 is reached <br>
+when %rdx contains "" i.e an empty string<br>
+(In C/assembly, an empty string contains exactly one byte<br>
+ 0x00   ← the null terminator) it returns<br>
+and it put the strlength in %eax 
+
+
+`movzbl (%rbx,%rax,1),%ecx` Reads 1 byte from `memory[rbx+rax*1]`,<br>
+`zero-extends` it to 32 bits, and stores it in %ecx
+
+`cl` is the lowest (least significant) byte of the 32-bit register ecx
+
+`phase_5 can have many answers`
+
+Main instructions to look at:
+<pre>
+1. Understanding what strings_not_equal is doing, 
+   what it returns in eax especially what are its arguments.
+
+2. <phase_5+41> to <phase_5+52> it is doing some calculation
+   which is based on the input given. 
+
+3. <phase_5+55>, <phase_5+62>
+</pre>
+
+`When ans to phase_5 is put in the inputs file `<br>
+`it should be made sure that there are no trailing  spaces`
