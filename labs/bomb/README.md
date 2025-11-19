@@ -1,4 +1,10 @@
-`There should be a newline character after each answer in the inputs file`
+There should be a `newline` character after each answer in the inputs file 
+and each ans should not have any trailing spaces.
+
+# In phase_1:
+
+The answer can be found even without using gdb, just by using `strings` 
+command and intuition.
 
 # In phase_2:
 
@@ -203,3 +209,33 @@ Main instructions to look at:
 
 `When ans to phase_5 is put in the inputs file it should be made sure that there are no trailing spaces`
 
+# In phase_6:
+
+To see where `<read_six_numbers>` read(`parsed`) the input:<br>
+
+    x/80wd $rsp (0x50 = D 80)
+
+It will be found starting from `$rsp`  
+
+There is a lot of looping which checks:
+
+- If the numbers after an element in the input array are different
+  than the element. This will be checked for each element.
+
+- It will also be checked that the values are <= 6.
+
+- Then another array of pointers gets created using the 
+  input values.
+
+- The instructions `cmp %eax,(%rbx)` and `jge    0x4011ee <phase_6+250>`
+  on `<phase_6+241>`and the next line make the real comparisions that 
+  decide if the input is correct or not. 
+
+- There are a total of 5 comparisions made which decide if given input
+  is correct or not. `mov $0x5,%ebp` on `<phase_6+230>` and `sub $0x1,%ebp`, `jne    0x4011df <phase_6+235>`on `<phase_6+254>` and the next line make sure that only 5 comparisions are made. 
+
+- Like all arithmetic instructions, `sub` sets the Zero Flag `ZF` based 
+  on whether the result is zero.
+
+  If %ebp - 1 == 0, then ZF = 1 → `jne` does not jump  to `<phase_6+235> ` 
+  → loop ends. and `add $0x50,%rsp` is reached. 
