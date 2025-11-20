@@ -181,11 +181,11 @@ Then `cmpb $0x0,(%rdi)`:
 
 `<string_length>`:
 
-- It checks for the whole string if '\0' or 0x0 is reached <br>
+- It checks for the whole string if '\0' or 0x0 is reached 
   when %rdx contains "" i.e an empty string
 
   (In C/assembly, an empty string contains exactly one byte<br>
-   0x00   ← the null terminator) it returns<br>
+   0x00 ← the null terminator) it returns
   and it put the strlength in %eax 
 
 
@@ -227,15 +227,18 @@ There is a lot of looping which checks:
 - Then another array of pointers gets created using the 
   input values.
 
-- The instructions `cmp %eax,(%rbx)` and `jge    0x4011ee <phase_6+250>`
+- The instructions `cmp %eax,(%rbx)` and `jge 0x4011ee <phase_6+250>`
   on `<phase_6+241>`and the next line make the real comparisions that 
   decide if the input is correct or not. 
 
 - There are a total of 5 comparisions made which decide if given input
-  is correct or not. `mov $0x5,%ebp` on `<phase_6+230>` and `sub $0x1,%ebp`, `jne    0x4011df <phase_6+235>`on `<phase_6+254>` and the next line make sure that only 5 comparisions are made. 
+  is correct or not. `mov $0x5,%ebp` on `<phase_6+230>` and `sub $0x1,%ebp`, `jne 0x4011df <phase_6+235>`on `<phase_6+254>` and the next line make sure that only 5 comparisions are made. 
 
 - Like all arithmetic instructions, `sub` sets the Zero Flag `ZF` based 
   on whether the result is zero.
 
   If %ebp - 1 == 0, then ZF = 1 → `jne` does not jump  to `<phase_6+235> ` 
   → loop ends. and `add $0x50,%rsp` is reached. 
+
+To double deref a pointer to a pointer:<br>
+`x/4wd *(long*)($rsp+32)`
