@@ -39,5 +39,5 @@ Rule: If the callee wants to use a callee-saved register (like rbx, rbp, r12–r
 what objdump shows(`48` `89` `e5` `90` `90`) is ascii text This is NOT what the CPU executes. This is just human-readable text representing bytes. 
 
 Raw = actual binary bytes in memory (`0x48` `0x89` `0xE5` `0x90` `0x90`)<br>
-Thats why when printe many show up as `���` because they dont have valid 
+Thats why when printed many show up as `���` because they dont have valid 
 ascii representation for them.
