@@ -13,7 +13,7 @@ $ xxd level1.raw
 </pre>
 "00000030: `0a`"
 
-And also with `wc -c level1.raw `
+And also with `wc -c level1.raw`
 <pre>
 $ wc -c level1.raw
 49 level1.raw 
@@ -29,5 +29,7 @@ Now `xxd level1.raw` should give:<br>
 00000010: 4545 4545 4545 4545 4545 4545 4545 4545  EEEEEEEEEEEEEEEE
 00000020: 4545 4545 4545 4545 c017 4000 0000 0000  EEEEEEEE..@.....
 </pre>
+And `wc -c level1.raw`
+<pre>48 level1.raw</pre>
 
 Now `./ctarget -q < level1.raw` passes.
