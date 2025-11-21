@@ -13,6 +13,12 @@ $ xxd level1.raw
 </pre>
 "00000030: `0a`"
 
+And also with `wc -c level1.raw `
+<pre>
+$ wc -c level1.raw
+49 level1.raw 
+</pre>
+
 ## Prevention:
 
 Do: `truncate -s -1 level1.raw`
@@ -24,4 +30,4 @@ Now `xxd level1.raw` should give:<br>
 00000020: 4545 4545 4545 4545 c017 4000 0000 0000  EEEEEEEE..@.....
 </pre>
 
-Now `./ctarget -q < level1_raw.txt` passes.
+Now `./ctarget -q < level1.raw` passes.
