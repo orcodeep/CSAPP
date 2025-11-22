@@ -103,7 +103,7 @@ So once the rip enters the buffer it knows how to execute each instruction.
 
 ### padding:
 
-The standard padding is just repeating NOP.
+The standard padding is just repeating 0x90 (`nop`).
 
 When the CPU sees a NOP, it just says:
 
