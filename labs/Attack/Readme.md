@@ -49,8 +49,8 @@ Important:
 Because the stack grows downward, the compiler allocates the buffer like this:
 <pre>
 HIGH ADDR    → buf[0]
-               buf[1]
-               ...
+                buf[1]
+                ...
 LOW ADDR     → buf[n-1]
 </pre>
 
