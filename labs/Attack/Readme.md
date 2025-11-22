@@ -55,9 +55,9 @@ LOW ADDR     → buf[0]
 </pre>
 
 Gets writes sequentially from buf[0] → buf[1] → … → buf[n-1]
-(high → low addresses):
+(low → high addresses):
 
-- That means it writes into lower addresses first (top of the buffer), then upward toward buf[n-1].
+- That means it writes into lower addresses first (bottom of the buffer), then upward towards buf[n-1].
 
 - When you overflow past the buffer, you continue writing into even higher addresses
 
@@ -79,32 +79,59 @@ Lower addresses
 
 # In level2:
 
-- We overflow the buffer and overwrite the address on the stack where it normally contains an address inside `.text` which the `rip` goes to after popping that stack adddress due to a `ret` in `.text`. We overwrite the `.text` address inside that stack address with the address of `buf[0]` which is a stack address.
+We overflow the buffer and overwrite the address on the stack where it normally contains an address inside `.text` which the `rip` goes to after popping that stack adddress due to a `ret` in `.text`. We overwrite the `.text` address inside that stack address with the address of `buf[0]` which is a stack address.
 
-    - And because for this level the stack is executable, if we put machine instructions inside the buffer, they will be executed when pointed at by `rip`.
+- And because for this level the stack is executable, if we put machine instructions inside the buffer, they will be executed when pointed at by `rip`.
 
-- The address of `touch2` is after addr of buf[0] (so overflow:- `buffer -> addr of buf[0] -> addr of touch2`). 
+The address of `touch2` should be pushed on the stack before calling it. 
 
-    - Because when first ret is hit from getbuf, `addr of buf[0]` is popped which was at ret addr slot i.e When ret executes, it consumes 8 bytes at `rsp` and then increments RSP by 8. so now `rsp` points at addr of `touch2`. on next ret, it will again consume 8 bytes from `rsp`.
+- Because when first ret is hit from getbuf, `addr of buf[0]` is popped which was at ret addr slot i.e When ret executes, it consumes 8 bytes at `rsp` and then increments RSP by 8. <br><br>So, now `rsp` points at an address which contains stuff thats not our function's (caller's saved registers, caller's local registers etc etc).
 
-From inside the buffer when we reach and hit ret, addr of touch2 is popped because that was the top of the stack.
+**If we overwrite an address from the caller's frame we would `segfault`**
+
 <pre>
 Higher addresses
 +---------------------------+
-| Return address of touch2  |  <-- %rsp here
-+---------------------------+ -+
-| Return address of buf[0]  |  |
+| [ caller’s saved frame ]  |<-%rsp here (← previous function’s stuff) 
++---------------------------+--+
+|  address of buf[0]        |  |
 +---------------------------+  |
 | buffer[39]                |  | --> all this is deallocated but they are
 | ...                       |  |     not erased
 | buffer[0]  <-- new %rip   |  |
-+---------------------------+ -+
++---------------------------+--+
+Lower addresses
+</pre>
+
+From inside the buffer when we `pushq` the address of `touch2`, it gets stored at the ret address slot where previously `address of buf[0]` was.
+<pre>
+Higher addresses
++---------------------------+
+| [ caller’s saved frame ]  |<- %rsp here, ← previous function’s stuff  
++---------------------------+
+|  address of touch2        |<- %rsp here
++--------------------------------+--+
+| buffer[39]                     |  | 
+| ...                            |  |
+| buffer[xx] = pushq addr[touch2]|  | --> all this was deallocated but they
+| ...                            |  |     are not erased
+| buffer[0]  <-- new %rip        |  |
++--------------------------------+--+
 Lower addresses
 </pre>
 
 As always `gdb` can be used to find out values of `rsp` and other registers at a specific time.
 
-## x86-64 instructions are self decoding
+### padding:
+
+The standard padding is just repeating 0x90 (`nop`).
+
+When the CPU sees a NOP, it just says:
+
+- Okay nothing to do and moves the `rip` to the next byte.
+
+
+### x86-64 instructions are self decoding
 
 The CPU starts at the current instruction pointer(rip), reads a byte and interprets it as an opcode.
 
@@ -128,11 +155,4 @@ Then it moves the rip forward by that number of instructions.
 
 So once the rip enters the buffer it knows how to execute each instruction.
 
-### padding:
-
-The standard padding is just repeating 0x90 (`nop`).
-
-When the CPU sees a NOP, it just says:
-
-- Okay nothing to do and moves the `rip` to the next byte.
 
