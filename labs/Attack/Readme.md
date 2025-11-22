@@ -43,11 +43,14 @@ Hence for upto a string of 39 chars getbuf returns 1. (39chars + 1 null terminat
 
 # In level2:
 
-We overflow the buffer and overwrite the address on the stack where it normally contains an address inside `.text` which the `rip` goes to after popping that stack adddress due to `ret` in `.text`. we overwrite the `.text` address inside that stack address with the address of `buf[0]` which is a stack address itself. 
+We overflow the buffer and overwrite the address on the stack where it normally contains an address inside `.text` which the `rip` goes to after popping that stack adddress due to `ret` in `.text`. we overwrite the `.text` address inside that stack address with the address of `touch2` in `.text` and then `buf[0]` which is a stack address.
 
-And because for this lab the stack is executable. If we put machine instructions inside buffer they will be executed when pointed at by `rip`.
+And because for this level the stack is executable, if we put machine instructions inside `buf` they will be executed when pointed at by `rip`.
 
-The address inside `.text` which marks the beginning of `touch2`, we need to put that inside the buffer too along with machine code to explicitly jump to it. Because if we do not the address will be just treated as data and `rip` wont know that it should now jump to that address inside `.text` section and "not" continue to execute stack addresses one by one. 
+The address of `touch2`, we need to put that after the buffer first before address of `buf[0]` because that will be the top of the stack after buf[0] is popped and `rip` is inside buffer. 
+
+And we need to encode ret inside buf so that touch2's address is popped and execution of touch2 is started.
+
 
 
 
