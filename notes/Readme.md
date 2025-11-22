@@ -41,3 +41,33 @@ what objdump shows(`48` `89` `e5` `90` `90`) is ascii text This is NOT what the 
 Raw = actual binary bytes in memory (`0x48` `0x89` `0xE5` `0x90` `0x90`)<br>
 Thats why when printed many show up as `���` because they dont have valid 
 ascii representation for them.
+
+# RIP and execution:
+
+`rip` normally always points into the `.text` section
+
+During normal (non‑overflow) execution:
+
+- RIP points to an address in `.text`
+
+- CPU fetches instructions from `.text`
+
+- Executes them one-by-one (unless a jump/call/branch changes control flow 
+  and takes it some other address in `.text`) 
+
+`ret` is just another instruction in the .text section. 
+So `rip` reaches this instruction just like any other.
+
+what does ret do:
+
+- RET pops a value from the stack
+
+- That popped value must be an address in .text (normally). 
+  `so ret pop a stack address and that stack address contains an address inside the .text section`
+
+- RIP becomes that value
+
+- CPU continues executing in `.text`
+
+
+
