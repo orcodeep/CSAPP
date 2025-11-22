@@ -43,25 +43,39 @@ So, the 40 bytes end up being used entirely as the buffer.
 Hence for upto a string of 39 chars getbuf returns 1. (39chars + 1 null terminator).
 
 Important:
-- buf[0] is NOT the lowest address.
-- buf[0] is the HIGHEST address in the buffer.
+- buf[0] is NOT the highest address.
+- buf[0] is the LOWEST address in the buffer.
 
 Because the stack grows downward, the compiler allocates the buffer like this:
 <pre>
-HIGH ADDR    → buf[0]
+HIGH ADDR    → buf[n-1]
                 buf[1]
                 ...
-LOW ADDR     → buf[n-1]
+LOW ADDR     → buf[0]
 </pre>
 
 Gets writes sequentially from buf[0] → buf[1] → … → buf[n-1]
 (high → low addresses):
 
-- That means it writes into higher addresses first (top of the buffer), then downward toward buf[n-1].
+- That means it writes into lower addresses first (top of the buffer), then upward toward buf[n-1].
 
-- When you overflow past the buffer, you continue writing into even LOWER addresses
+- When you overflow past the buffer, you continue writing into even higher addresses
 
-- And those lower addresses contain saved RIP
+- And those higher addresses contain saved RIP
+
+<pre>
+Higher addresses
++---------------------------+
+| Return address (saved RIP)|  <-- still here
++---------------------------+
+| Saved RBP (if any)        |
++---------------------------+
+| buffer[39]                |
+| ...                       |
+| buffer[0]  <-- new %rsp   |
++---------------------------+
+Lower addresses
+</pre>
 
 # In level2:
 
@@ -69,11 +83,24 @@ Gets writes sequentially from buf[0] → buf[1] → … → buf[n-1]
 
     - And because for this level the stack is executable, if we put machine instructions inside the buffer, they will be executed when pointed at by `rip`.
 
-- The address of `touch2` is in the buffer (the last eight bytes) (so overflow:- `buffer[0 to 32] = machine instructions, buffer[32 to 40] = addr of touch2 -> addr of buf[0]`). 
+- The address of `touch2` is after addr of buf[0] (so overflow:- `buffer -> addr of buf[0] -> addr of touch2`). 
 
-    - Because when first ret is hit from getbuf, `addr of buf[0]` is popped which was at ret addr slot i.e When ret executes, it consumes 8 bytes at `rsp` and then increments RSP by 8. so now `rsp` points at buf[n-1]. on next ret, it will again consume 8 bytes from `rsp`.
+    - Because when first ret is hit from getbuf, `addr of buf[0]` is popped which was at ret addr slot i.e When ret executes, it consumes 8 bytes at `rsp` and then increments RSP by 8. so now `rsp` points at addr of `touch2`. on next ret, it will again consume 8 bytes from `rsp`.
 
-- Then from inside the buffer when we hit ret, addr of touch2 is popped because that was the top of the stack then. 
+From inside the buffer when we reach and hit ret, addr of touch2 is popped because that was the top of the stack.
+<pre>
+Higher addresses
++---------------------------+
+| Return address of touch2  |  <-- %rsp here
++---------------------------+ -+
+| Return address of buf[0]  |  |
++---------------------------+  |
+| buffer[39]                |  | --> all this is deallocated but they are
+| ...                       |  |     not erased
+| buffer[0]  <-- new %rip   |  |
++---------------------------+ -+
+Lower addresses
+</pre>
 
 As always `gdb` can be used to find out values of `rsp` and other registers at a specific time.
 
