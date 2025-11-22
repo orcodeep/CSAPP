@@ -48,8 +48,8 @@ Important:
 Because the stack grows downward, the compiler allocates the buffer like this:
 <pre>
 HIGH ADDR    → buf[0]
-              buf[1]
-              ...
+               buf[1]
+               ...
 LOW ADDR     → buf[n-1]
 </pre>
 
@@ -64,14 +64,13 @@ Gets writes sequentially from buf[0] → buf[1] → … → buf[n-1]
 
 # In level2:
 
-We overflow the buffer and overwrite the address on the stack where it normally contains an address inside `.text` which the `rip` goes to after popping that stack adddress due to `ret` in `.text`. We overwrite the `.text` address inside that stack address with the address of `touch2` in `.text` and then `buf[0]` which is a stack address.(so overflow :- `buffer -> addr of touch2 -> addr of buf[0]`)
+We overflow the buffer and overwrite the address on the stack where it normally contains an address inside `.text` which the `rip` goes to after popping that stack adddress due to `ret` in `.text`. We overwrite the `.text` address inside that stack address with the address of `buf[0]` which is a stack address.
+
+The address of `touch2` is in the buffer [the last eight bytes] (so overflow:- `buffer[0 to 32] = machine instructions, buffer[32 to 40] = addr of touch2 -> addr of buf[0]`). Because when first ret is hit from getbuf, `addr of buf[0]` is popped which was at ret addr slot i.e When ret executes, it consumes 8 bytes at `rsp` and then increments RSP by 8. so now `rsp` points at buf[n-1]. on next ret, it will again consume 8 bytes from `rsp`.
 
 And because for this level the stack is executable, if we put machine instructions inside the buffer, they will be executed when pointed at by `rip`.
 
-so when first ret is hit from getbuf, `addr of buf[0]` is popped. Then from inside the buffer when we hit ret, addr of touch2 is popped because that was the top of the stack then. 
-
-
-
+Then from inside the buffer when we hit ret, addr of touch2 is popped because that was the top of the stack then. 
 
 
 
