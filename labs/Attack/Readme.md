@@ -83,7 +83,7 @@ We overflow the buffer and overwrite the address on the stack where it normally 
 
 - And because for this level the stack is executable, if we put machine instructions inside the buffer, they will be executed when pointed at by `rip`.
 
-The address of `touch2` should be pushed on the stack before calling it. 
+The address of `touch2` should be pushed on the stack before calling it. So we can call it with the `ret` instruction. 
 
 - Because when first ret is hit from getbuf, `addr of buf[0]` is popped which was at ret addr slot i.e When ret executes, it consumes 8 bytes at `rsp` and then increments RSP by 8. <br><br>So, now `rsp` points at an address which contains stuff thats not our function's (caller's saved registers, caller's local registers etc etc).
 
@@ -103,13 +103,13 @@ Higher addresses
 Lower addresses
 </pre>
 
-From inside the buffer when we `pushq` the address of `touch2`, it gets stored at the ret address slot where previously `address of buf[0]` was.
+From inside the buffer when we `pushq` the address of `touch2`, it gets stored at the ret address slot where previously `address of buf[0]` was. So now when we `ret` from inside the buffer the address of touch2 gets popped automatically from the stack for rip to point to.
 <pre>
 Higher addresses
 +---------------------------+
 | [ caller’s saved frame ]  |<- %rsp here, ← previous function’s stuff  
 +---------------------------+
-|  address of touch2        |<- %rsp here
+|  address of touch2        |<- %rsp here after pushq from buffer
 +--------------------------------+--+
 | buffer[39]                     |  | 
 | ...                            |  |
