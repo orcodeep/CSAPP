@@ -41,15 +41,36 @@ Inside getbuf disassembly we see `sub $0x28,%rsp`. 0x28 = 40. Although the funct
 
 Hence for upto a string of 39 chars getbuf returns 1. (39chars + 1 null terminator).
 
+Important:
+- buf[0] is NOT the lowest address.
+- buf[0] is the HIGHEST address in the buffer.
+
+Because the stack grows downward, the compiler allocates the buffer like this:
+<pre>
+HIGH ADDR    → buf[0]
+              buf[1]
+              ...
+LOW ADDR     → buf[n-1]
+</pre>
+
+Gets writes sequentially from buf[0] → buf[1] → … → buf[n-1]
+(high → low addresses):
+
+- That means it writes into higher addresses first (top of the buffer), then downward toward buf[n-1].
+
+- When you overflow past the buffer, you continue writing into even LOWER addresses
+
+- And those lower addresses contain saved RIP
+
 # In level2:
 
-We overflow the buffer and overwrite the address on the stack where it normally contains an address inside `.text` which the `rip` goes to after popping that stack adddress due to `ret` in `.text`. we overwrite the `.text` address inside that stack address with the address of `touch2` in `.text` and then `buf[0]` which is a stack address.
+We overflow the buffer and overwrite the address on the stack where it normally contains an address inside `.text` which the `rip` goes to after popping that stack adddress due to `ret` in `.text`. We overwrite the `.text` address inside that stack address with the address of `touch2` in `.text` and then `buf[0]` which is a stack address.(so overflow :- `buffer -> addr of touch2 -> addr of buf[0]`)
 
-And because for this level the stack is executable, if we put machine instructions inside `buf` they will be executed when pointed at by `rip`.
+And because for this level the stack is executable, if we put machine instructions inside the buffer, they will be executed when pointed at by `rip`.
 
-The address of `touch2`, we need to put that after the buffer first before address of `buf[0]` because that will be the top of the stack after buf[0] is popped and `rip` is inside buffer. 
+so when first ret is hit from getbuf, `addr of buf[0]` is popped. Then from inside the buffer when we hit ret, addr of touch2 is popped because that was the top of the stack then. 
 
-And we need to encode ret inside buf so that touch2's address is popped and execution of touch2 is started.
+
 
 
 
