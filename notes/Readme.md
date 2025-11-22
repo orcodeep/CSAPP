@@ -55,17 +55,17 @@ During normal (non‑overflow) execution:
 - Executes them one-by-one (unless a jump/call/branch changes control flow 
   and takes it some other address in `.text`) 
 
-`ret` is just another instruction in the .text section. 
+ret is just another instruction in the .text section. 
 So `rip` reaches this instruction just like any other.
 
 what does ret do:
 
-- RET pops a value from the stack
+- ret pops a value from the stack
 
 - That popped value must be an address in .text (normally). 
   `so ret pop a stack address and that stack address contains an address inside the .text section`
 
-- RIP becomes that value
+- `rip` becomes that value
 
 - CPU continues executing in `.text`
 
