@@ -155,4 +155,13 @@ Then it moves the rip forward by that number of instructions.
 
 So once the rip enters the buffer it knows how to execute each instruction.
 
+# In level3:
+
+We cant store the null terminated string in the buffer because hexmatch and strcmp will overwrite it. so store the null terminated string in the stack.
+
+**Also if you push to the stack from inside the buffer, as the stack grows the buffer gets overwriten.**
+
+So, if there is machine instructions near the end of the buffer, the get overwritten and `rip` will execute those and program would `segfault`.
+
+Hence, instructions should finish before the bytes that get overwritten because of the push instructions in the buffer.
 
