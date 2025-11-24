@@ -35,7 +35,7 @@ And `wc -c level1.raw`
 
 Now `./ctarget -q < level1.raw` passes.
 
-# In level1:
+# In phase1:
 
 Inside getbuf disassembly we see `sub $0x28,%rsp`. 0x28 = 40. Although the function reserves 40 bytes of stack space, in this particular function that entire region is the buffer, because there are no other local variables. 
 
@@ -77,7 +77,7 @@ Higher addresses
 Lower addresses
 </pre>
 
-# In level2:
+# In phase2:
 
 We overflow the buffer and overwrite the address on the stack where it normally contains an address inside `.text` which the `rip` goes to after popping that stack adddress due to a `ret` in `.text`. We overwrite the `.text` address inside that stack address with the address of `buf[0]` which is a stack address.
 
@@ -87,7 +87,7 @@ The address of `touch2` should be pushed on the stack before calling it. So we c
 
 - Because when first ret is hit from getbuf, `addr of buf[0]` is popped which was at ret addr slot i.e When ret executes, it consumes 8 bytes at `rsp` and then increments RSP by 8. <br><br>So, now `rsp` points at an address which contains stuff thats not our function's (caller's saved registers, caller's local registers etc etc).
 
-**If we overwrite an address from the caller's frame we would `segfault`**
+**If we overwrite an address higher than ret addr slot of getbuf() without aligning the stack we would `segfault`**
 
 <pre>
 Higher addresses
@@ -131,31 +131,51 @@ When the CPU sees a NOP, it just says:
 - Okay nothing to do and moves the `rip` to the next byte.
 
 
-### x86-64 instructions are self decoding
+## ***Alternate:***
 
-The CPU starts at the current instruction pointer(rip), reads a byte and interprets it as an opcode.
+Write both the addresses of buf[0] and touch2 to stack with buffer overflow 
 
-Based on the op code, the CPU knows:
+It is important where the Stack Pointer `%rsp` ends up after a pop. 
 
-- whether there are prefixes
+After ret executes, %rsp must end in 8.
 
-- whether there are ModR/M byte
+- This is the "Safe State" for the function to run.
 
-- whether it has SIB byte
+- The function expects the stack to be "misaligned" by 8 bytes (because a normal call instruction would have pushed an 8-byte return address).
 
-- whether it has a displacement
+In gdb:
 
-- whether it has an immediate value 
+- Before the first ret from getbuf(), `rsp` = `0x5561dca0`
 
-- total length of the instruction, etc..
+- After first pop due to ret in getbuf() the `rsp` increments by 8, `rsp` = `0x5561dca8` and because the last digit is `8` it is in required state.
 
-So the CPU knows exactly how many bytes belong to that instruction.
+- Then when `rip` executes `ret` from inside the buffer, after execution again `rsp` = `rsp+0x8` so `rsp`=`0x5561dcb0` which is unsafe state and this will cauase `segfault1`.
 
-Then it moves the rip forward by that number of instructions.
+**The Solution: The "ROP NOP"**
 
-So once the rip enters the buffer it knows how to execute each instruction.
+To shift the stack pointer by 8 bytes without changing anything else, you simply include the address of a `ret` instruction in your chain.
 
-# In level3:
+That's it. You find the address of a ret instruction anywhere in the program and you place that address in your stack chain.
+
+**The ret instruction is "dumb." It does not care about alignment. The ret gadget is then used to "absorb" the bad alignment**
+
+A ret instruction does two things:
+
+- Pops the next address off the stack.
+
+- Jumps to it.
+
+If you jump to a ret instruction, it effectively says "skip this slot and go to the next one." It acts exactly like a `nop` (No-Operation) in code injection. For ROP chains, it consumes 8 bytes of stack space, toggling the alignment.
+
+So we could write the address of the `ret` inside the buffer.
+
+- After the `ret` from buffer is executed it pops the next 8 bytes from the stack(`0x5561dca8`) and if the value in this address is the address of that same `ret` instruction in the buffer the `rip` essentialy doesnt move but the `rsp` gets icremented by `8` `rsp+0x8`=`0x5561dcb0` but even though the end is `0` its safe as `rip` points at a `ret`.
+
+- Now at `0x5561dcb0` if we have the address of `touch2`. when `ret` is again executed by `rip` and rip is at beginning of `touch2`, rsp gets incremented to `0x5561dcb8` which is a safe state as it ends in `8`.
+
+__This will be used extensively for `ROP` becasue we have only the high stack addresses to write the addresses of all the gadgets and to chain them together.__
+
+# In phase3:
 
 We cant store the null terminated string in the buffer because hexmatch and strcmp will overwrite it. so store the null terminated string in the stack.
 

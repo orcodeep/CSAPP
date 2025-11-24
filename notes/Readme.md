@@ -69,5 +69,28 @@ what does ret do:
 
 - CPU continues executing in `.text`
 
+# x86-64 instructions are self decoding
+
+The CPU starts at the current instruction pointer(rip), reads a byte and interprets it as an opcode.
+
+Based on the op code, the CPU knows:
+
+- whether there are prefixes
+
+- whether there are ModR/M byte
+
+- whether it has SIB byte
+
+- whether it has a displacement
+
+- whether it has an immediate value 
+
+- total length of the instruction, etc..
+
+So the CPU knows exactly how many bytes belong to that instruction.
+
+Then it moves the rip forward by that number of instructions.
+
+So once the rip enters the buffer it knows how to execute each instruction.
 
 
