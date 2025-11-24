@@ -151,7 +151,7 @@ In gdb:
 
 - Then when `rip` executes `ret` from inside the buffer, after execution again `rsp` = `rsp+0x8` so `rsp`=`0x5561dcb0` which is unsafe state and this will cauase `segfault1`.
 
-**The Solution:- The `"ROP NOP"`**
+### **The Solution:- The `"ROP NOP"`**
 
 To shift the stack pointer by 8 bytes without changing anything else, you simply include the address of a `ret` instruction in your chain.
 
