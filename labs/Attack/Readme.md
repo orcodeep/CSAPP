@@ -87,7 +87,7 @@ The address of `touch2` should be pushed on the stack before calling it. So we c
 
 - Because when first ret is hit from getbuf, `addr of buf[0]` is popped which was at ret addr slot i.e When ret executes, it consumes 8 bytes at `rsp` and then increments RSP by 8. <br><br>So, now `rsp` points at an address which contains stuff thats not our function's (caller's saved registers, caller's local registers etc etc).
 
-**If we overwrite an address higher than ret addr slot of getbuf() without aligning the stack we would `segfault`**
+**If we overwrite an address higher than ret addr slot of getbuf() without aligning the stack we would `segfault`.<br><br>We would enter the function touch2 but as soon as touch2 sees that rsp doesnt end in a 8 it would segfault.**
 
 <pre>
 Higher addresses
@@ -135,9 +135,9 @@ When the CPU sees a NOP, it just says:
 
 Write both the addresses of buf[0] and touch2 to stack with buffer overflow 
 
-It is important where the Stack Pointer `%rsp` ends up after a pop. 
+But it is important where the Stack Pointer `%rsp` ends up after a pop. 
 
-After ret executes, %rsp must end in 8.
+After ret executes and rip points at touch2, %rsp must end in 8.
 
 - This is the "Safe State" for the function to run.
 
@@ -151,7 +151,7 @@ In gdb:
 
 - Then when `rip` executes `ret` from inside the buffer, after execution again `rsp` = `rsp+0x8` so `rsp`=`0x5561dcb0` which is unsafe state and this will cauase `segfault1`.
 
-**The Solution: The "ROP NOP"**
+**The Solution: The `"ROP NOP"`**
 
 To shift the stack pointer by 8 bytes without changing anything else, you simply include the address of a `ret` instruction in your chain.
 
@@ -169,7 +169,7 @@ If you jump to a ret instruction, it effectively says "skip this slot and go to 
 
 So we could write the address of the `ret` inside the buffer.
 
-- After the `ret` from buffer is executed it pops the next 8 bytes from the stack(`0x5561dca8`) and if the value in this address is the address of that same `ret` instruction in the buffer the `rip` essentialy doesnt move but the `rsp` gets icremented by `8` `rsp+0x8`=`0x5561dcb0` but even though the end is `0` its safe as `rip` points at a `ret`.
+- After the `ret` from buffer is executed it pops the next 8 bytes from the rsp(rsp = `0x5561dca8` right now).<br><br>And if the value in this address is the address of that same `ret` instruction in the buffer the `rip` essentialy doesnt move but the `rsp` gets icremented by `8` as normal `rsp+0x8`=`0x5561dcb0` but even though the end is `0` its safe as `rip` points at a `ret`.
 
 - Now at `0x5561dcb0` if we have the address of `touch2`. when `ret` is again executed by `rip` and rip is at beginning of `touch2`, rsp gets incremented to `0x5561dcb8` which is a safe state as it ends in `8`.
 
