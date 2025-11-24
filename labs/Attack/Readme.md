@@ -128,7 +128,11 @@ When the CPU sees a NOP, it just says:
 
 - Okay nothing to do and moves the `rip` to the next byte.
 
-**If instead of `push` we overwrite an address higher than ret addr slot of getbuf() by `8` without aligning the stack we would `segfault`.<br><br>We would enter the function touch2 but as soon as touch2 sees that rsp doesnt end in a 8 it would segfault.<br><br>This "Alignment Rule" (System V ABI) applies specifically to Vector Instructions (SIMD/XMM registers) often used in complex C functions like 'printf' and functions that use functions like that**
+**If instead of `push` we overwrite an address higher than ret addr slot of getbuf() by `8` without aligning the stack we would `segfault`.<br><br>We would enter the function touch2 but as soon as touch2 sees that rsp doesnt end in a 8 it would segfault.**
+
+**This "Alignment Rule" (System V ABI) matter when a function like touch2 uses instructions that expect `rsp` to be 16 byte aligned at the moment of a call. If you jump into touch2 without going through a proper call, `rsp` is misaligned, and if touch2 uses movaps or other SSE instructions, the CPU raises a SIGSEGV**
+
+_If you reach touch2 via a real `call` instruction, then the stack will already be aligned correctly, and no special alignment fix(like inserting an extra ret) is needed._
 
 
 ## ***Alternate solution:***
