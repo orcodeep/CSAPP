@@ -167,6 +167,8 @@ A ret instruction does two things:
 
 If you jump to a ret instruction, it effectively says "skip this slot and go to the next one." It acts exactly like a `nop` (No-Operation) in code injection. For ROP chains, it consumes 8 bytes of stack space, toggling the alignment.
 
+**The popq instruction is just like the ret instruction: It does not care about alignment.<br>Just like ret, popq is a "Goat." It eats anything**
+
 So we could write the address of the `ret` inside the buffer.
 
 - After the `ret` from buffer is executed it pops the next 8 bytes from the rsp(rsp = `0x5561dca8` right now).<br><br>And if the value in this address is the address of that same `ret` instruction in the buffer the `rip` essentialy doesnt move but the `rsp` gets icremented by `8` as normal `rsp+0x8`=`0x5561dcb0` but even though the end is `0` its safe as `rip` points at a `ret`.
