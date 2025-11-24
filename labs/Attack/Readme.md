@@ -87,8 +87,6 @@ The address of `touch2` should be pushed on the stack before calling it. So we c
 
 - Because when first ret is hit from getbuf, `addr of buf[0]` is popped which was at ret addr slot i.e When ret executes, it consumes 8 bytes at `rsp` and then increments RSP by 8. <br><br>So, now `rsp` points at an address which contains stuff thats not our function's (caller's saved registers, caller's local registers etc etc).
 
-**If we overwrite an address higher than ret addr slot of getbuf() without aligning the stack we would `segfault`.<br><br>We would enter the function touch2 but as soon as touch2 sees that rsp doesnt end in a 8 it would segfault.**
-
 <pre>
 Higher addresses
 +---------------------------+
@@ -130,8 +128,10 @@ When the CPU sees a NOP, it just says:
 
 - Okay nothing to do and moves the `rip` to the next byte.
 
+**If instead of `push` we overwrite an address higher than ret addr slot of getbuf() by `8` without aligning the stack we would `segfault`.<br><br>We would enter the function touch2 but as soon as touch2 sees that rsp doesnt end in a 8 it would segfault.**
 
-## ***Alternate:***
+
+## ***Alternate solution:***
 
 Write both the addresses of buf[0] and touch2 to stack with buffer overflow 
 
@@ -151,7 +151,7 @@ In gdb:
 
 - Then when `rip` executes `ret` from inside the buffer, after execution again `rsp` = `rsp+0x8` so `rsp`=`0x5561dcb0` which is unsafe state and this will cauase `segfault1`.
 
-**The Solution: The `"ROP NOP"`**
+**The Solution:- The `"ROP NOP"`**
 
 To shift the stack pointer by 8 bytes without changing anything else, you simply include the address of a `ret` instruction in your chain.
 
