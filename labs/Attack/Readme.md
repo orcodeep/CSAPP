@@ -128,6 +128,8 @@ When the CPU sees a NOP, it just says:
 
 - Okay nothing to do and moves the `rip` to the next byte.
 
+#### Note-
+
 **If instead of `push` we overwrite an address higher than ret addr slot of getbuf() by `8` without aligning the stack we would `segfault`.<br><br>We would enter the function touch2 but as soon as touch2 sees that rsp doesnt end in a 8 it would segfault.**
 
 **This "Alignment Rule" (System V ABI) matter when a function like touch2 uses instructions that expect `rsp` to be 16 byte aligned at the moment of a call. If you jump into touch2 without going through a proper call, `rsp` is misaligned, and if touch2 uses movaps or other SSE instructions, the CPU raises a SIGSEGV**
