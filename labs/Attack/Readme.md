@@ -128,7 +128,7 @@ When the CPU sees a NOP, it just says:
 
 - Okay nothing to do and moves the `rip` to the next byte.
 
-**If instead of `push` we overwrite an address higher than ret addr slot of getbuf() by `8` without aligning the stack we would `segfault`.<br><br>We would enter the function touch2 but as soon as touch2 sees that rsp doesnt end in a 8 it would segfault.**
+**If instead of `push` we overwrite an address higher than ret addr slot of getbuf() by `8` without aligning the stack we would `segfault`.<br><br>We would enter the function touch2 but as soon as touch2 sees that rsp doesnt end in a 8 it would segfault.<br><br>This "Alignment Rule" (System V ABI) applies specifically to Vector Instructions (SIMD/XMM registers) often used in complex C functions like 'printf' and functions that use functions like that**
 
 
 ## ***Alternate solution:***
@@ -187,3 +187,16 @@ So, if there is machine instructions near the end of the buffer, the get overwri
 
 Hence, instructions should finish before the bytes that get overwritten because of the push instructions in the buffer.
 
+# In phase4:
+
+We do not need to worry about alignment when we jump to a gadget by executing a ret. We only care about the alignment after that gadget finishes.
+
+movq (Move Quad Word):
+
+- This instruction moves data between General Purpose Registers (like %rax, %rdi, %rbx).
+
+- General Purpose Registers do not enforce alignment. Even if the instruction accesses memory (like movq (%rdi), %rax), x86-64 CPUs handle unaligned memory access just fine.
+
+- It will never segfault just because the stack address ends in 0 vs 8.
+
+**We only need care about the alignment after that gadget finishes.**
