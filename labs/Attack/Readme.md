@@ -206,3 +206,21 @@ movq (Move Quad Word):
 - It will never segfault just because the stack address ends in 0 vs 8.
 
 **We only need care about the alignment after that gadget finishes.**
+
+# In phase5:
+
+**A specific (and very helpful) rule of the x86-64 architecture:**
+
+- Any instruction that writes to a 32-bit register automatically zeros out the upper 32 bits of the corresponding 64-bit register.
+The Behavior
+
+If you execute:
+movl %eax, %esi
+
+The CPU does two things:
+
+- Copies the 32 bits from %eax into the lower 32 bits of %rsi (which is %esi).
+
+- Forces the upper 32 bits of %rsi to be all zeros.
+
+
