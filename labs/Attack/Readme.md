@@ -222,3 +222,5 @@ The CPU does two things:
 - Copies the 32 bits from %eax into the lower 32 bits of %rsi (which is %esi).
 
 - Forces the upper 32 bits of %rsi to be all zeros.
+
+Adresses of gadgets from rtarget binary and the string's ascii values should be written correctly in little endian order.
