@@ -7,13 +7,13 @@
 
 typedef struct {
     int valid;
-    unsigned int setindex;
+    unsigned long tag;
 }cacheLine;
 
 FILE* fileopen(char* filename);
-cacheLine** make_cache(int sets,int lines);
+cacheLine** make_cache(unsigned int sets, unsigned int lines);
 void parse(FILE* fileptr, int verbose);
-void free_cache(cacheLine** cache, int sets);
+void free_cache(cacheLine** cache, unsigned int sets);
 
 int main(int argc, char* argv[])
 {
@@ -67,9 +67,8 @@ int main(int argc, char* argv[])
         exit(-1);
     }
     if (!t){printf("-t flag missing\n"); exit(-1);}
-    int sets = 1 << s;
-    int lines = 1 << E;
-    //  int blocksize = 1 << b; 
+    unsigned int sets = 1u << s;  // 2^s
+    unsigned int lines = 1u << E; // 2^E
     cacheLine** cache = make_cache(sets, lines);
 
     FILE* tracefile = fileopen(trace);
@@ -92,7 +91,7 @@ inline FILE* fileopen(char* filename)
     return fileptr;
 }
 
-cacheLine** make_cache(int sets,int lines)
+cacheLine** make_cache(unsigned int sets, unsigned int lines)
 {
     cacheLine** cache = malloc(sets * sizeof(cacheLine*));
     for(int i = 0; i < sets; i++)
@@ -134,7 +133,7 @@ void parse(FILE* fileptr, int verbose)
 }
 
 
-void free_cache(cacheLine** cache, int sets)
+void free_cache(cacheLine** cache,unsigned int sets)
 {
 /*
 free(cache[i]) frees the entire array of cache lines for set i.

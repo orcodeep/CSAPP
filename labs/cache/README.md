@@ -49,4 +49,20 @@ Only the initial numeric part is used. The rest is ignored.
 
 Also leading whitespace is ignored.
 
+### fgets()
+
 `fgets()` keeps the newline that is already in the file. it reads up to and including the newline `\n` (unless the line is too long to fit in the buffer)
+
+# t = m - (s + b)
+
+ex:- The address 0x7ff0005c8 really only needs 39 bits.
+
+If you take m = 64, formula gives extra unused high-order bits in the tag:
+
+`t = 64 - (s + b)`
+
+Those extra upper bits are always zero in your trace addresses (on x86-64 canonical addresses).
+
+So even though t looks bigger than it “needs to be,” it doesn’t affect correctness.
+
+
