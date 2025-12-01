@@ -17,6 +17,8 @@ We ignore `size`
 
 so for the Cache Lab, even if the block size were 2 bytes (ridiculously tiny), you can still assume a double fits inside a single block, because the lab explicitly guarantees that no memory access ever crosses a cache block boundary
 
+**In real hardware `s + b <= m`**
+
 # What atoi does
 
 `int atoi(const char *str);`
