@@ -32,7 +32,9 @@ So the addresses are like:-<br>
 2<sup>b</sup> to 2&times;2<sup>b</sup>-1<br>
 2&times;2<sup>b</sup> to 3&times;2<sup>b</sup>-1 ...
 
-- Each block in main memory maps as exactly 1 block in the cache. say b = 4, so all addresses which have different combinations of the last 4 bits but have all the rest of the higher bits same map to the same line in a particular set. If even one bit higher than the most significant `b` bit is changed the address goes into a different set.
+- Each block in main memory maps as exactly 1 block in the cache. say b = 4, so all addresses which have different combinations of the last 4 bits but have all the rest of the higher bits same map to the same line in a particular set. If even one bit higher than the most significant `b` bit is changed the address goes into a different set.<br><br>
+Hence, many blocks can have the same tag but they wont be in the same set.<br><br>
+_t bits are the highest so then change the last._
 
 - Hence, having more number of `lines` in a `set` lets more memory blocks map to the same set and having more `block bits` lets more memory addresses correspond to the same block.
 
