@@ -65,6 +65,6 @@ Those extra upper bits are always zero in your trace addresses (on x86-64 canoni
 
 So even though t looks bigger than it “needs to be,” it doesn’t affect correctness.
 
-So because each memory address has `m` bits that form `M` = 2<sup>m</sup> unique addresses, by that same logic each cache that has t tag bits has 2^t unique tag addresses. So, 2<sup>t</sup> = 2<sup>m - (s+b)</sup> = addr / (2<sup>s</sup> * 2<sup>b</sup>) = addr >> (s+b)
+So because each memory address has `m` bits that form `M` = 2<sup>m</sup> unique addresses, by that same logic each cache that has t tag bits has 2<sup>t</sup> unique tag addresses. So, 2<sup>t</sup> = 2<sup>m - (s+b)</sup> = addr / (2<sup>s</sup> * 2<sup>b</sup>) = addr >> (s+b)
 
-See `6.4.1` ***Generic Cache Memory Organization*** of csapp 3e
+See `6.4.1` ***Generic Cache Memory Organization*** and figure `6.25` `(b)` of csapp 3e 
