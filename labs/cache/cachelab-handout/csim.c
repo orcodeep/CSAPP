@@ -11,7 +11,7 @@ typedef struct {
 }cacheLine;
 
 FILE* fileopen(char* filename);
-cacheLine** make_cache(sets, lines, blocksize);
+cacheLine** make_cache(int sets,int lines);
 void parse(FILE* fileptr, int verbose);
 void free_cache(cacheLine** cache, int sets);
 
@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
     int sets = 1 << s;
     int lines = 1 << E;
     //  int blocksize = 1 << b; 
-    cacheLine** cache = (sets, lines);
+    cacheLine** cache = make_cache(sets, lines);
 
     FILE* tracefile = fileopen(trace);
     parse(tracefile, verbose); // it should return the total hits, misses and evictions 
@@ -92,7 +92,7 @@ inline FILE* fileopen(char* filename)
     return fileptr;
 }
 
-cacheLine** make_cache(sets, lines)
+cacheLine** make_cache(int sets,int lines)
 {
     cacheLine** cache = malloc(sets * sizeof(cacheLine*));
     for(int i = 0; i < sets; i++)
@@ -117,10 +117,12 @@ void parse(FILE* fileptr, int verbose)
     {
         strcpy(copy, buffer);
 
-        char* op = strtok(copy, " ,  \n");
-        char* addrstr = strtok(NULL, " ,  \n");
-        char* datasize = strtok(NULL, " ,  \n"); 
-        // printf("op: %s, addr: %s, datasize: %s\n", op, addr, datasize);
+        char* op = strtok(copy, " ,\n");
+        if (op[0] == 'I')
+            continue;
+        char* addrstr = strtok(NULL, " ,\n");
+        char* datasize = strtok(NULL, " ,\n"); 
+        // printf("op: %s, addr: %s, datasize: %s\n", op, addrstr, datasize);
 
         unsigned long addr = strtoul(addrstr, NULL, 16);
         // now make the checking and mapping and cache logic
