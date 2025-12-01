@@ -73,7 +73,7 @@ The mapping is not really invented its just provided by whatever the bit pattern
 
 # set index of memory address
 
-We do not really invent a mapping table. The set index is literally the set bits(`s`) itself.
+We do not really invent a mapping table. The set index is literally just the value the set bits(`s`) represents.
  
 <pre>
             t bits      s bits        b bits
