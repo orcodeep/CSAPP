@@ -4,7 +4,7 @@
 
 - No access crosses a cache block boundary
 
-- Each access fits perfectly inside one block
+- Each `access` fits perfectly inside one block
 
 So the “size” does not affect which block is touched, nor how many blocks are touched.
 
@@ -15,9 +15,32 @@ so we only need:
 
 We ignore `size`
 
-so for the Cache Lab, even if the block size were 2 bytes (ridiculously tiny), you can still assume a double fits inside a single block, because the lab explicitly guarantees that no memory access ever crosses a cache block boundary
+so for the Cache Lab, even if the block size were ridiculously tiny, you can still assume an access(4, 8,..) fits inside a single block, because the lab explicitly guarantees that no memory access ever crosses a cache block boundary.
 
-**In real hardware `s + b <= m`**
+## In hardware:
+
+Blocks are always aligned `inherently` i.e the start addresses are always multiples of 2<sup>b</sup>.
+
+- say b = 3, block size = 2<sup>3</sup> = 8. so let the memory address blocks:<br><br>
+Addresses 0x1000 -> 0x1007 (Block 0)<br>
+Addresses 0x1008 -> 0x100F (Block 1)<br>
+Addresses 0x1010 -> 0x1017 (Block 2)<br>
+Addresses 0x1018 -> 0x101F (Block 3) ...<br><br>
+So as can bee seen the last digits of the start addresses are 0 or 8.<br><br>
+So the addresses are like:-<br>
+0 to 2<sup>b</sup>-1<br>
+2<sup>b</sup> to 2&times;2<sup>b</sup>-1<br>
+2&times;2<sup>b</sup> to 3&times;2<sup>b</sup>-1 ...
+
+- Each block in main memory maps as exactly 1 block in the cache. say b = 4, so all addresses which have different combinations of the last 4 bits but have all the rest of the higher bits same map to the same line in a particular set. If even one bit higher than the most significant `b` bit is changed the address goes into a different set.
+
+- Hence, having more number of `lines` in a `set` lets more memory blocks map to the same set and having more `block bits` lets more memory addresses correspond to the same block.
+
+- Even though blocks are aligned, a single memory access(like reading a 8-byte double or a 16-byte struct) might cross a block boundary i.e the access may span across multiple blocks if block size (2<sup>b</sup>) is smaller than the data size which is the case a lot of times.<br><br>
+The lab wants us to ignore the extra `hits`, `misses` and `evictions` that occur when a data spans multiple blocks.<br><br>
+***This way you only check one line in one set per access.***
+
+**In real hardware `s + b + t == m`**
 
 # What atoi does
 
