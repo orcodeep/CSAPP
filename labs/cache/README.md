@@ -110,7 +110,7 @@ m-1 +-----------+-------------+------------+ 0
       All zeroes   All zeroes      Tag
 </pre>
 
-See `6.4.1` ***Generic Cache Memory Organization*** and figure `6.25` `(b)` of csapp 3e 
+See `section 6.4.1` ***Generic Cache Memory Organization*** and figure `6.25` `(b)` of csapp 3e 
 
 The mapping is not really invented its just provided by whatever the bit pattern of the `t` bits in the memory address.
 
