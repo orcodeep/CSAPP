@@ -83,10 +83,8 @@ ADDRESS |           |             |            |
             Tag       Set index    Block offset
 </pre>
 
-`setindex` of a memory address in the cache 
-<pre>
- = (addr >> b) & ((1 << s) - 1)
-</pre>
+`setindex` of a memory address in the cache<br>
+`= (addr >> b) & ((1 << s) - 1)`
 
 (1 << s) is Number of sets = 2<sup>s</sup> so its the total number of possible combinations of s which map into the cache.
 
