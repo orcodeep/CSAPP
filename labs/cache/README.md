@@ -49,3 +49,4 @@ Only the initial numeric part is used. The rest is ignored.
 
 Also leading whitespace is ignored.
 
+`fgets()` keeps the newline that is already in the file. it reads up to and including the newline `\n` (unless the line is too long to fit in the buffer)
