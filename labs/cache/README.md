@@ -80,11 +80,11 @@ Also leading whitespace is ignored.
 
 `fgets()` keeps the newline that is already in the file. it reads up to and including the newline `\n` (unless the line is too long to fit in the buffer)
 
-# t = m - (s + b)
+# tag
 
-ex:- The address 0x7ff0005c8 minimally only needs 36 bits.
+ex:- The main memory address 0x7ff0005c8 minimally only needs 36 bits.
 
-But you take m = 64, formula gives extra unused high-order bits in the tag:
+But you take m = 64, which gives extra unused high-order bits in the tag:
 
 `t = 64 - (s + b)` <- number of tag bits
 
@@ -114,7 +114,9 @@ See `6.4.1` ***Generic Cache Memory Organization*** and figure `6.25` `(b)` of c
 
 The mapping is not really invented its just provided by whatever the bit pattern of the `t` bits in the memory address.
 
-# set index of memory address
+The fact that we extract tag, setindex and the blocks directly from the memory address itself is cool :)
+
+# set index
 
 We do not really invent a mapping table. The set index is literally just the value the set bits(`s`) represents.
  
