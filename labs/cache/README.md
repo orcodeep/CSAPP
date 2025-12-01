@@ -55,11 +55,11 @@ Also leading whitespace is ignored.
 
 # t = m - (s + b)
 
-ex:- The address 0x7ff0005c8 really only needs 39 bits.
+ex:- The address 0x7ff0005c8 minimally only needs 36 bits.
 
-If you take m = 64, formula gives extra unused high-order bits in the tag:
+But you take m = 64, formula gives extra unused high-order bits in the tag:
 
-`t = 64 - (s + b)`
+`t = 64 - (s + b)` <- number of tag bits
 
 Those extra upper bits are always zero in your trace addresses (on x86-64 canonical addresses).
 
@@ -68,3 +68,46 @@ So even though t looks bigger than it “needs to be,” it doesn’t affect cor
 So because each memory address has `m` bits that form `M` = 2<sup>m</sup> unique addresses, by that same logic each cache that has t tag bits has 2<sup>t</sup> unique tag addresses. So, 2<sup>t</sup> = 2<sup>m - (s+b)</sup> = addr / (2<sup>s</sup> * 2<sup>b</sup>) = addr >> (s+b)
 
 See `6.4.1` ***Generic Cache Memory Organization*** and figure `6.25` `(b)` of csapp 3e 
+
+The mapping is not really invented its just provided by whatever the bit pattern of the `t` bits in the memory address.
+
+# set index of memory address
+
+We do not really invent a mapping table. The set index is literally the set bits(`s`) itself.
+ 
+<pre>
+            t bits      s bits        b bits
+        +-----------+-------------+------------+
+ADDRESS |           |             |            |  
+    m-1 +-----------+-------------+------------+ 0
+            Tag       Set index    Block offset
+</pre>
+
+`setindex` of a memory address in the cache 
+<pre>
+ = (addr >> b) & ((1 << s) - 1)
+</pre>
+
+(1 << s) is Number of sets = 2<sup>s</sup> so its the total number of possible combinations of s which map into the cache.
+
+2<sup>s</sup>-1 is the largest value that can be represented with `s` number of bits which is simply all `s` bits set to `1`.
+
+So when we do `addr >> b`:-
+<pre>
+                                  s bits
+    +-----------+-------------+------------+
+    |           |             |            |  
+m-1 +-----------+-------------+------------+ 0
+     All zeroes      Tag        Set index
+</pre>
+
+Now `& ((1 << s) - 1)`:- 
+<pre>
+                                  s bits
+    +-----------+-------------+------------+
+    |           |             |            |  
+m-1 +-----------+-------------+------------+ 0
+     All zeroes   All zeroes     Set index
+</pre>
+
+
