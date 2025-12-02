@@ -15,7 +15,7 @@ so we only need:
 
 We ignore `size`
 
-so for the Cache Lab, even if the block size were ridiculously tiny, you can still assume an access(4, 8,..) fits inside a single block, because the lab explicitly guarantees that no memory access ever crosses a cache block boundary.
+so for the Cache Lab, even if the block size were ridiculously tiny, you can still assume the data of an access(4, 8,..) fits inside a single block, because the lab explicitly guarantees that no memory access ever crosses a cache block boundary.
 
 ## In hardware:
 
@@ -152,6 +152,12 @@ Now `& ((1 << s) - 1)`:-
 m-1 +-----------+-------------+------------+ 0
      All zeroes   All zeroes     Set index
 </pre>
+
+# memory blocks
+
+Because all the addresses in the same block would have the same tag and set index, we do not need to keep track of which block a particular address belongs to.
+
+So if block bits `b` = 5 then 2<sup>5</sup> different addresses are automatically in the same block.
 
 # LRU
 
