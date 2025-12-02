@@ -17,10 +17,6 @@ We ignore `size`
 
 so for the Cache Lab, even if the block size were ridiculously tiny, you can still assume an access(4, 8,..) fits inside a single block, because the lab explicitly guarantees that no memory access ever crosses a cache block boundary.
 
-#### Note:
-
-The only special thing about `M` operation is that it counts as two accesses(a load then a hit), so it always updates LRU twice and can produce two hits and 0 miss or 1 hit and 1 miss but can never give 0 hits because the store after the load is always a hit.
-
 ## In hardware:
 
 Blocks are always aligned `inherently` i.e the start addresses are always multiples of 2<sup>b</sup>.
@@ -201,5 +197,7 @@ This creates a cyclic “bounded `LRU”`
 For a simulator: scanning all lines is fine, even for 16-way or more.
 
 If you were designing actual hardware, you’d switch to PLRU or tree-based approximation once associativity is large.
+
+The only special thing about `M` operation is that it counts as **two accesses**(a load then a hit), so it always updates LRU twice and can produce `2` hits and `0` miss or `1` hit and `1` miss but can never give `0` hits because the store after the load is always a hit.
 
 
