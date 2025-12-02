@@ -8,12 +8,19 @@
 typedef struct {
     int valid;
     unsigned long tag;
-}cacheLine;
+    int age;
+}line;
+
+typedef struct {
+    line* lines;
+    int E;
+    int increasing; 
+}set;   
 
 FILE* fileopen(char* filename);
-cacheLine** make_cache(unsigned int sets, unsigned int lines);
-void parse(FILE* fileptr, int verbose);
-void free_cache(cacheLine** cache, unsigned int sets);
+set* make_cache(unsigned int sets, int E);
+void parse(FILE* fileptr, int verbose, set* cache, int s, int b);
+void free_cache(line** cache, unsigned int sets);
 
 int main(int argc, char* argv[])
 {
@@ -68,11 +75,10 @@ int main(int argc, char* argv[])
     }
     if (!t){printf("-t flag missing\n"); exit(-1);}
     unsigned int sets = 1u << s;  // 2^s
-    unsigned int lines = 1u << E; // 2^E
-    cacheLine** cache = make_cache(sets, lines);
+    set* cache = make_cache(sets, E);
 
     FILE* tracefile = fileopen(trace);
-    parse(tracefile, verbose); // it should return the total hits, misses and evictions 
+    parse(tracefile, verbose, cache, s, b); // it should return the total hits, misses and evictions 
 
     printSummary(0, 0, 0);
     free_cache(cache, sets);
@@ -91,23 +97,31 @@ inline FILE* fileopen(char* filename)
     return fileptr;
 }
 
-cacheLine** make_cache(unsigned int sets, unsigned int lines)
+set* make_cache(unsigned int sets, int E)
 {
-    cacheLine** cache = malloc(sets * sizeof(cacheLine*));
-    for(int i = 0; i < sets; i++)
+    set* cache = malloc(sets * sizeof(set));
+    if (!cache) return NULL;
+    for(unsigned int i = 0; i < sets; i++)
     {
-        cache[i] = malloc(lines * sizeof(cacheLine));
+        cache[i].lines = malloc(E * sizeof(line));
+        if (!cache[i].lines) return NULL;
+        cache[i].E = E;
+        cache[i].increasing = 1;   // initially every line's will increase. 
+                                   // so line with min age is oldest accessed and should be evicted next
+
         // initialize valid bits to 0
-        for(int j = 0; j < lines; j++)
+        for(int j = 0; j < E; j++)
         {
-            cache[i][j].valid = 0;
+            cache[i].lines[j].valid = 0;
+            cache[i].lines[j].age = 0;
+            cache[i].lines[j].tag = 0;
         }
     }
-    
+
     return cache;
 }
 
-void parse(FILE* fileptr, int verbose)
+void parse(FILE* fileptr, int verbose, set* cache, int s, int b)
 {
     size_t buffsize = 30;
     char buffer[buffsize];
@@ -124,7 +138,12 @@ void parse(FILE* fileptr, int verbose)
         // printf("op: %s, addr: %s, datasize: %s\n", op, addrstr, datasize);
 
         unsigned long addr = strtoul(addrstr, NULL, 16);
-        // now make the checking and mapping and cache logic
+        
+        unsigned int tag = addr >>  (s+b);
+        unsigned int setindex = (addr >> b) & ((1u << s) - 1); 
+
+        // now do the hits misses and evictions
+
 
         
     }
@@ -133,7 +152,7 @@ void parse(FILE* fileptr, int verbose)
 }
 
 
-void free_cache(cacheLine** cache,unsigned int sets)
+void free_cache(line** cache, unsigned int sets)
 {
 /*
 free(cache[i]) frees the entire array of cache lines for set i.
