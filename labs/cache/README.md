@@ -153,4 +153,20 @@ m-1 +-----------+-------------+------------+ 0
      All zeroes   All zeroes     Set index
 </pre>
 
+# LRU
 
+Cyclic LRU scheme:
+
+- Each line has an `age`, incremented on access.
+ 
+- Each set has an `increasing` flag.
+ 
+- Ages are bounded only by the type (e.g., uint8_t), and when one line overflows:
+ 
+- Flip `increasing` → eviction logic switches between picking min age or max age
+ 
+- Eviction: pick min/max age depending on flag.
+ 
+- Effectively: per-set cyclic LRU with controlled overflow.
+ 
+- Advantages: overflow-safe, uses small counters, hardware-friendly for simulation.
