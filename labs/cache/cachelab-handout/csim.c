@@ -145,9 +145,10 @@ void parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
         int hits = 0; int misses = 0; int evictions = 0;
 
         set* set = &cache[setindex]; // set is a pointer to our memory block's set
-        int evictLine; int invLine = -1;
+        int evictLine = 0; int invLine = -1;
         int hit = 0; int miss = 0;
         uint8_t LRU = set->lines[0].age;
+        int edgeCounder = 0;
         for(int i = 0; i < E; i++)
         {
             // if invalid line available, track the first as a invLine 
@@ -160,6 +161,18 @@ void parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
             }
             else
             {
+                // Count how many lines are at the extreme age
+                if (set->increasing && set->lines[i].age == 255)
+                    edgeCounder++;
+                else if (!set->increasing && set->lines[i].age == 0)
+                    edgeCounder++;
+
+                /* flip the increasing flag if needed
+                For a hit, if you flip the flag before updating the age, 
+                the hit line will age in the new direction, not the old one.*/
+                if (edgeCounder == E)
+                    set->increasing = !set->increasing;                     
+
                 // if hit
                 if (tag == set->lines[i].tag)
                 {
@@ -192,13 +205,10 @@ void parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
                                 set->lines[i].age--;
                         }
                     }
-
+                    
                     break;
                 }
-
-                // flip the increasing flag if needed
-
-
+                       
                 // track line with max/min LRU whichever 'increasing' flag demands
                 if (set->increasing)
                 {
