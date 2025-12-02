@@ -168,5 +168,34 @@ Cyclic LRU scheme:
 - Eviction: pick min/max age depending on flag.
  
 - Effectively: per-set cyclic LRU with controlled overflow.
- 
-- Advantages: overflow-safe, uses small counters, hardware-friendly for simulation.
+
+**Problem:** 
+
+The scheme assumes all lines get accessed roughly equally between evictions.
+
+Since a line's age is incremented everytime its `accessed` and not everytime its evicted, the hot lines which are accessed very frequently will wrap around and **not wait for the other lines to catch up to its age.** So the `increase` flag wont work.
+
+**Solution:**
+
+Bound counters per line between 0 and MAX 
+
+- Each line’s age goes 0 → max 
+
+- Increment on access, but cap at `max`.<br><br>
+Evict the line with the smallest age.
+
+- when all lines reach max age, flip `increasing` flag to 0.<br><br>
+Decrement on access, but cap at min(`0`).<br><br>
+Evict the line with the largest age.
+
+- When all lines reach 0 → flip `increasing` to 1 again.
+
+This creates a cyclic “bounded `LRU”`
+
+#### Note:
+
+For a simulator: scanning all lines is fine, even for 16-way or more.
+
+If you were designing actual hardware, you’d switch to PLRU or tree-based approximation once associativity is large.
+
+
