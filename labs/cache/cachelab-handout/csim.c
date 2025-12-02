@@ -1,26 +1,26 @@
 #define _XOPEN_SOURCE 600        // for (optarg, optind,..) declaration 
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include "cachelab.h"
 
 typedef struct {
     int valid;
-    unsigned long tag;
-    int age;
+    unsigned int tag;
+    uint8_t age;
 }line;
 
 typedef struct {
     line* lines;
-    int E;
-    int increasing; 
+    uint8_t increasing; 
 }set;   
 
 FILE* fileopen(char* filename);
 set* make_cache(unsigned int sets, int E);
-void parse(FILE* fileptr, int verbose, set* cache, int s, int b);
-void free_cache(line** cache, unsigned int sets);
+void parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E);
+void free_cache(set* cache, unsigned int sets);
 
 int main(int argc, char* argv[])
 {
@@ -78,7 +78,7 @@ int main(int argc, char* argv[])
     set* cache = make_cache(sets, E);
 
     FILE* tracefile = fileopen(trace);
-    parse(tracefile, verbose, cache, s, b); // it should return the total hits, misses and evictions 
+    parse(tracefile, verbose, cache, s, b, E); // it should return the total hits, misses and evictions 
 
     printSummary(0, 0, 0);
     free_cache(cache, sets);
@@ -105,7 +105,6 @@ set* make_cache(unsigned int sets, int E)
     {
         cache[i].lines = malloc(E * sizeof(line));
         if (!cache[i].lines) return NULL;
-        cache[i].E = E;
         cache[i].increasing = 1;   // initially every line's will increase. 
                                    // so line with min age is oldest accessed and should be evicted next
 
@@ -114,14 +113,14 @@ set* make_cache(unsigned int sets, int E)
         {
             cache[i].lines[j].valid = 0;
             cache[i].lines[j].age = 0;
-            cache[i].lines[j].tag = 0;
+            // tag can be left uninitialized as Only when valid = 1 do you store a meaningful tag
         }
     }
 
     return cache;
 }
 
-void parse(FILE* fileptr, int verbose, set* cache, int s, int b)
+void parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
 {
     size_t buffsize = 30;
     char buffer[buffsize];
@@ -134,7 +133,7 @@ void parse(FILE* fileptr, int verbose, set* cache, int s, int b)
         if (op[0] == 'I')
             continue;
         char* addrstr = strtok(NULL, " ,\n");
-        char* datasize = strtok(NULL, " ,\n"); 
+        int datasize = atoi(strtok(NULL, " ,\n")); 
         // printf("op: %s, addr: %s, datasize: %s\n", op, addrstr, datasize);
 
         unsigned long addr = strtoul(addrstr, NULL, 16);
@@ -143,16 +142,92 @@ void parse(FILE* fileptr, int verbose, set* cache, int s, int b)
         unsigned int setindex = (addr >> b) & ((1u << s) - 1); 
 
         // now do the hits misses and evictions
+        int hits = 0; int misses = 0; int evictions = 0;
+
+        set* set = &cache[setindex]; // set is a pointer to our memory block's set
+        int evictLine; int invLine = -1;
+        int hit = 0; int miss = 0;
+        uint8_t LRU = set->lines[0].age;
+        for(int i = 0; i < E; i++)
+        {
+            // if invalid line available, track the first as a invLine 
+            if (!set->lines[i].valid)
+            {
+                if (invLine == -1)
+                    invLine = i;
+
+                continue;
+            }
+            else
+            {
+                // if hit
+                if (tag == set->lines[i].tag)
+                {
+                    hit = 1;
+                    hits++;
+
+                    if (set->increasing)
+                    {
+                        if (set->lines[i].age < 255)
+                            set->lines[i].age++;
+
+                        if (op[0] == 'M')
+                        {
+                            hits++;
+
+                            if (set->lines[i].age < 255)
+                                set->lines[i].age++;
+                        }
+                    }
+                    else
+                    {
+                        if (set->lines[i].age > 0)
+                            set->lines[i].age--;
+
+                        if (op[0] == 'M')
+                        {
+                            hits++;
+
+                            if (set->lines[i].age > 0)
+                                set->lines[i].age--;
+                        }
+                    }
+
+                    break;
+                }
+
+                // flip the increasing flag if needed
 
 
-        
+                // track line with max/min LRU whichever 'increasing' flag demands
+                if (set->increasing)
+                {
+                    if (set->lines[i].age < LRU)
+                    {
+                        LRU = set->lines[i].age;
+                        evictLine = i;
+                    }
+                }
+                else
+                {
+                    if (set->lines[i].age > LRU)
+                    {
+                        LRU = set->lines[i].age;
+                        evictLine = i;
+                    }
+                }
+
+            }
+
+        }
+                
     }
 
     fclose(fileptr);
 }
 
 
-void free_cache(line** cache, unsigned int sets)
+void free_cache(set* cache, unsigned int sets)
 {
 /*
 free(cache[i]) frees the entire array of cache lines for set i.
@@ -161,7 +236,7 @@ There is no need to loop over each line, because they are not individually mallo
 */
     for(int i = 0; i < sets; i++)
     {
-        free(cache[i]);
+        free(cache[i].lines);
     }
     free(cache);
 }
