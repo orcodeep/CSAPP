@@ -30,3 +30,13 @@ If you didn’t flip the direction, your logic for picking the “oldest” line
 
 - The flip ensures the cyclic aging direction is correct for subsequent accesses, which preserves the intended LRU behavior.
 
+# Returning array 
+
+If `arr` is allocated on the stack inside `parse()`.
+
+`int arr[3] = {hits, misses, evictions};`
+
+- When the function returns, the memory for `arr` is freed automatically.
+
+- int* arr = parse(...); in `main()` will point to invalid memory → undefined behavior.
+

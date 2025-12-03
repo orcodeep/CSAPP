@@ -19,7 +19,7 @@ typedef struct {
 
 FILE* fileopen(char* filename);
 set* make_cache(unsigned int sets, int E);
-void parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E);
+int* parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E);
 void free_cache(set* cache, unsigned int sets);
 
 int main(int argc, char* argv[])
@@ -78,10 +78,11 @@ int main(int argc, char* argv[])
     set* cache = make_cache(sets, E);
 
     FILE* tracefile = fileopen(trace);
-    parse(tracefile, verbose, cache, s, b, E); // it should return the total hits, misses and evictions 
+    int* arr = parse(tracefile, verbose, cache, s, b, E); 
 
-    printSummary(0, 0, 0);
+    printSummary(arr[0], arr[1], arr[2]);
     free_cache(cache, sets);
+    free(arr);
     return 0;
 }
 
@@ -120,21 +121,23 @@ set* make_cache(unsigned int sets, int E)
     return cache;
 }
 
-void parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
+int* parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
 {
     size_t buffsize = 30;
     char buffer[buffsize];
-    char copy[buffsize];  
+    char copy[buffsize]; 
+    int hits = 0; int misses = 0; int evictions = 0; 
     while(fgets(buffer, buffsize, fileptr) != NULL)
     {
         strcpy(copy, buffer);
 
-        char* op = strtok(copy, " ,\n");
-        if (op[0] == 'I')
+        char* opstr = strtok(copy, " ,\n");
+        char op = opstr[0];
+        if (op == 'I')
             continue;
         char* addrstr = strtok(NULL, " ,\n");
-        int datasize = atoi(strtok(NULL, " ,\n")); 
-        // printf("op: %s, addr: %s, datasize: %s\n", op, addrstr, datasize);
+        char* datastr = strtok(NULL, " ,\n"); 
+        // printf("op: %s, addr: %s, datasize: %s\n", op, addrstr, datastr);
 
         unsigned long addr = strtoul(addrstr, NULL, 16);
         
@@ -142,17 +145,20 @@ void parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
         unsigned int setindex = (addr >> b) & ((1u << s) - 1); 
 
         // now do the hits misses and evictions
-        int hits = 0; int misses = 0; int evictions = 0;
+        int hit = 0;
 
-        set* set = &cache[setindex]; // set is a pointer to our memory block's set
+        set set = cache[setindex];
         int evictLine = 0; int invLine = -1;
-        int hit = 0; int miss = 0;
-        uint8_t LRU = set->lines[0].age;
+        uint8_t LRU = set.lines[0].age;
         int edgeCounder = 0;
+
+        if (verbose)
+            printf("%s %s,%s ", opstr, addrstr, datastr);
+
         for(int i = 0; i < E; i++)
         {
             // if invalid line available, track the first as a invLine 
-            if (!set->lines[i].valid)
+            if (!set.lines[i].valid)
             {
                 if (invLine == -1)
                     invLine = i;
@@ -162,47 +168,53 @@ void parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
             else
             {
                 // Count how many lines are at the extreme age
-                if (set->increasing && set->lines[i].age == 255)
+                if (set.increasing && set.lines[i].age == 255)
                     edgeCounder++;
-                else if (!set->increasing && set->lines[i].age == 0)
+                else if (!set.increasing && set.lines[i].age == 0)
                     edgeCounder++;
 
                 /* flip the increasing flag if needed
                 For a hit, if you flip the flag before updating the age, 
                 the hit line will age in the new direction, not the old one.*/
                 if (edgeCounder == E)
-                    set->increasing = !set->increasing;                     
+                    set.increasing = !set.increasing;                     
 
                 // if hit
-                if (tag == set->lines[i].tag)
+                if (tag == set.lines[i].tag)
                 {
                     hit = 1;
                     hits++;
+                    if (verbose)
+                        printf("hit ");
 
-                    if (set->increasing)
+                    if (set.increasing)
                     {
-                        if (set->lines[i].age < 255)
-                            set->lines[i].age++;
+                        if (set.lines[i].age < 255)
+                            set.lines[i].age++;
 
-                        if (op[0] == 'M')
+                        if (op == 'M')
                         {
                             hits++;
+                            if (verbose)
+                                printf("hit\n");
 
-                            if (set->lines[i].age < 255)
-                                set->lines[i].age++;
+                            if (set.lines[i].age < 255)
+                                set.lines[i].age++;
                         }
                     }
                     else
                     {
-                        if (set->lines[i].age > 0)
-                            set->lines[i].age--;
+                        if (set.lines[i].age > 0)
+                            set.lines[i].age--;
 
-                        if (op[0] == 'M')
+                        if (op == 'M')
                         {
                             hits++;
+                            if (verbose)
+                                printf("hit\n");
 
-                            if (set->lines[i].age > 0)
-                                set->lines[i].age--;
+                            if (set.lines[i].age > 0)
+                                set.lines[i].age--;
                         }
                     }
                     
@@ -210,30 +222,81 @@ void parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
                 }
                        
                 // track line with max/min LRU whichever 'increasing' flag demands
-                if (set->increasing)
+                if (set.increasing)
                 {
-                    if (set->lines[i].age < LRU)
+                    if (set.lines[i].age < LRU)
                     {
-                        LRU = set->lines[i].age;
+                        LRU = set.lines[i].age;
                         evictLine = i;
                     }
                 }
                 else
                 {
-                    if (set->lines[i].age > LRU)
+                    if (set.lines[i].age > LRU)
                     {
-                        LRU = set->lines[i].age;
+                        LRU = set.lines[i].age;
                         evictLine = i;
                     }
                 }
+            }
+        }
+        
+        // handle the miss 
+        if (!hit)
+        {
+            misses++;
+            int line = 0;
+            
+            // invalid line available
+            if (invLine != -1)
+            {
+                line = invLine;
 
+                if (op == 'M')
+                {
+                    hits++;
+                    if (verbose)
+                        printf("miss hit\n");
+                }
+                else
+                {
+                    if (verbose)
+                        printf("miss\n");
+                }
+            }
+            else
+            {
+                evictions++;
+                line = evictLine;
+
+                if (op == 'M')
+                {
+                    hits++;
+                    if (verbose)
+                        printf("miss eviction hit\n");
+                }
+                else
+                {
+                    if (verbose)
+                        printf("miss eviction\n");
+                }
             }
 
+            if (set.increasing)
+                set.lines[line].age = 0;
+            else
+                set.lines[line].age = 255;
+            
+            set.lines[line].tag = tag;
         }
-                
     }
 
     fclose(fileptr);
+    int* arr = malloc(3 * sizeof(int));
+    arr[0] = hits;
+    arr[1] = misses;
+    arr[2] = evictions;
+    return arr;
 }
 
 
