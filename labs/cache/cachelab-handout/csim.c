@@ -142,20 +142,15 @@ int* parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
         char* datastr = strtok(NULL, " ,\r\n"); 
         if (verbose)
             printf("%s %s,%s ", opstr, addrstr, datastr);
-        // printf("op: %s, addr: %s, datasize: %s\n", op, addrstr, datastr);
 
         unsigned long addr = strtoul(addrstr, NULL, 16);
-        // printf("addr: %lu ", addr);
         
         unsigned int tag = addr >> (s+b);
         unsigned int setindex = (addr >> b) & ((1u << s) - 1); 
 
-        // printf("tag: %u, setindex: %u ", tag, setindex);
-
         // now do the hits misses and evictions
         int hit = 0;
-
-        set* set = &cache[setindex];
+        set* set = &cache[setindex]; // <--- It need to be a pointer for proper access to cache
         int evictLine = 0; int invLine = -1;
         uint8_t LRU = set->lines[0].age;
         int edgeCounder = 0;
@@ -182,51 +177,44 @@ int* parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
                 For a hit, if you flip the flag before updating the age, 
                 the hit line will age in the new direction, not the old one.*/
                 if (edgeCounder == E)
-                    set->increasing = !set->increasing;                     
+                {set->increasing = !set->increasing;}                 
 
                 // if hit
                 if (tag == set->lines[i].tag)
                 {
                     hit = 1;
                     hits++;
-                    if (verbose){printf("hit ");}
 
                     if (set->increasing)
                     {
-                        if (set->lines[i].age < 255)
-                            set->lines[i].age++;
+                        if (set->lines[i].age < 255) {set->lines[i].age++;}
 
                         if (op == 'M')
                         {
                             hits++;
-                            if (verbose){printf("hit\n");}
+                            if (verbose){printf("hit hit\n");}
 
-                            if (set->lines[i].age < 255)
-                                set->lines[i].age++;
+                            if (set->lines[i].age < 255) {set->lines[i].age++;}
                         }
                         else 
                         {
-                            if (verbose)
-                            printf("\n");
+                            if (verbose) {printf("hit\n");}
                         }
                     }
                     else
                     {
-                        if (set->lines[i].age > 0)
-                            set->lines[i].age--;
+                        if (set->lines[i].age > 0) {set->lines[i].age--;}
 
                         if (op == 'M')
                         {
                             hits++;
-                            if (verbose){printf("hit\n");}
+                            if (verbose){printf("hit hit\n");}
 
-                            if (set->lines[i].age > 0)
-                                set->lines[i].age--;
+                            if (set->lines[i].age > 0) {set->lines[i].age--;}
                         }
                         else 
                         {
-                            if (verbose)
-                                printf("\n");
+                            if (verbose) {printf("hit\n");}
                         }
                     }
                     
@@ -291,12 +279,29 @@ int* parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
             }
 
             if (set->increasing)
-                set->lines[line].age = 0;
+            {
+                if(set->lines[line].age < 255)
+                {
+                    set->lines[line].age++;
+                }
+                if (op == 'M' && set->lines[line].age < 255)
+                {
+                    set->lines[line].tag++;
+                }
+            }
             else
-                set->lines[line].age = 255;
-            
+            {
+                if (set->lines[line].age > 0)
+                {
+                    set->lines[line].age--;
+                }
+                if (op == 'M' && set->lines[line].age > 0)
+                {
+                    set->lines[line].tag--;
+                }
+            }
             set->lines[line].tag = tag;
-            set->lines[line].valid = 1;   // <--- THIS very important
+            set->lines[line].valid = 1; // <--- THIS very important
         }
     }
 
@@ -312,7 +317,7 @@ int* parse(FILE* fileptr, int verbose, set* cache, int s, int b, int E)
 void free_cache(set* cache, unsigned int sets)
 {
 /*
-free(cache[i]) frees the entire array of cache lines for set i.
+free(cache[i].lines) frees the entire array of cache lines for set i.
 
 There is no need to loop over each line, because they are not individually malloc’d.
 */
