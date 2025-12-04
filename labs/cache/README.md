@@ -1,4 +1,6 @@
-# The lab guarantees:
+# **csim.c**
+
+## The lab guarantees:
 
 - All accesses are aligned
 
@@ -17,7 +19,7 @@ We ignore `size`
 
 so for the Cache Lab, even if the block size were ridiculously tiny, you can still assume the data of an access(4, 8,..) fits inside a single block, because the lab explicitly guarantees that no memory access ever crosses a cache block boundary.
 
-## In hardware:
+### In hardware:
 
 Blocks are always aligned `inherently` i.e the start addresses are always multiples of 2<sup>b</sup>.
 
@@ -44,7 +46,7 @@ The lab wants us to ignore the extra `hits`, `misses` and `evictions` that occur
 
 **In real hardware `s + b + t == m`**
 
-# What atoi does
+## What atoi does
 
 `int atoi(const char *str);`
 
@@ -80,7 +82,7 @@ Also leading whitespace is ignored.
 
 `fgets()` keeps the newline that is already in the file. it reads up to and including the newline `\n` (unless the line is too long to fit in the buffer)
 
-# tag
+## tag
 
 ex:- The main memory address 0x7ff0005c8 minimally only needs 36 bits.
 
@@ -116,7 +118,7 @@ The mapping is not really invented its just provided by whatever the bit pattern
 
 The fact that we extract tag, setindex and the blocks directly from the memory address itself is cool :)
 
-# set index
+## set index
 
 We do not really invent a mapping table. The set index is literally just the value the set bits(`s`) represents.
  
@@ -153,57 +155,13 @@ m-1 +-----------+-------------+------------+ 0
      All zeroes   All zeroes     Set index
 </pre>
 
-# memory blocks
+## memory blocks
 
 Because all the addresses in the same block would have the same tag and set index, we do not need to keep track of which block a particular address belongs to.
 
 So if block bits `b` = 5 then 2<sup>5</sup> different addresses are automatically in the same block.
 
-# LRU
+## Evict victim
 
-Cyclic LRU scheme:
-
-- Each line has an `age`, incremented on access.
- 
-- Each set has an `increasing` flag.
- 
-- Ages are bounded only by the type (e.g., uint8_t), and when one line overflows:
- 
-- Flip `increasing` → eviction logic switches between picking min age or max age
- 
-- Eviction: pick min/max age depending on flag.
- 
-- Effectively: per-set cyclic LRU with controlled overflow.
-
-**Problem:** 
-
-The scheme assumes all lines get accessed roughly equally between evictions.
-
-Since a line's age is incremented everytime its `accessed` and not everytime its evicted, the hot lines which are accessed very frequently will wrap around and **not wait for the other lines to catch up to its age.** So the `increase` flag wont work.
-
-**Solution:**
-
-Bound counters per line between 0 and MAX 
-
-- Each line’s age goes 0 → max 
-
-- Increment on access, but cap at `max`.<br><br>
-Evict the line with the smallest age.
-
-- when all lines reach max age, flip `increasing` flag to 0.<br><br>
-Decrement on access, but cap at min(`0`).<br><br>
-Evict the line with the largest age.
-
-- When all lines reach 0 → flip `increasing` to 1 again.
-
-This creates a cyclic “bounded `LRU”`
-
-#### Note:
-
-For a simulator: scanning all lines is fine, even for 16-way or more.
-
-If you were designing actual hardware, you’d switch to PLRU or tree-based approximation once associativity is large.
-
-The only special thing about `M` operation is that it counts as **two accesses**(a load then a hit), so it always updates LRU twice and can produce `2` hits and `0` miss or `1` hit and `1` miss but can never give `0` hits because the store after the load is always a hit.
-
+We use a simple `LRU` where on access we boost its age to the max age (`255`) and the ages of all the other lines in the set get decremented by 1.
 

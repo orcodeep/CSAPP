@@ -1,34 +1,12 @@
 # No hit situation:
 
-You scan the set for a hit, but none of the lines match (cache miss).
+You scan the set for a `hit`, but if none of the lines match then `miss` which can be of two types:
 
-You do not care about evictions if there is a hit but u do care about the `edgeCounter` if there is a hit because the direction of aging might have changed.
+- Miss (No eviction) i.e invalid line available
 
-### Why flipping the direction matters:
+- Miss Eviction i.e no invalid lines
 
-Suppose all lines have reached the extreme age (say 255).
-
-If there is a miss then:
-
-- From the eviction perspective, it doesn’t matter which line you evict — all lines have the same age. 
-
-The purpose of flipping the increasing flag here is not for eviction, but for the next access:
-
-- The next hit will age a line in the correct direction (opposite to the previous extreme).
-
-- That ensures the cyclic LRU pattern continues correctly.
-
-- After that, future misses will now have meaningful age differences to pick the “oldest” line.
-
-If you didn’t flip the direction, your logic for picking the “oldest” line (for eviction) for next misses after a hit would incorrectly assume ages are still increasing.
-
-## TL;DR:
-
-- Flipping the increasing flag on “all extreme” is about future aging, not about immediate eviction.
-
-- The first miss when all ages are extreme is “neutral” for eviction.
-
-- The flip ensures the cyclic aging direction is correct for subsequent accesses, which preserves the intended LRU behavior.
+You do not care about `evict victim` if there is a hit.
 
 # Returning array 
 
@@ -40,3 +18,19 @@ If `arr` is allocated on the stack inside `parse()`.
 
 - int* arr = parse(...); in `main()` will point to invalid memory → undefined behavior.
 
+<pre>
+$ ./test-csim
+                        Your simulator     Reference simulator
+Points (s,E,b)    Hits  Misses  Evicts    Hits  Misses  Evicts
+     3 (1,1,1)       9       8       6       9       8       6  traces/yi2.trace
+     3 (4,2,4)       4       5       2       4       5       2  traces/yi.trace
+     3 (2,1,4)       2       3       1       2       3       1  traces/dave.trace
+     3 (2,1,3)     167      71      67     167      71      67  traces/trans.trace
+     3 (2,2,3)     201      37      29     201      37      29  traces/trans.trace
+     3 (2,4,3)     212      26      10     212      26      10  traces/trans.trace
+     3 (5,1,5)     231       7       0     231       7       0  traces/trans.trace
+     6 (5,1,5)  265189   21775   21743  265189   21775   21743  traces/long.trace
+    27
+
+TEST_CSIM_RESULTS=27
+</pre>
