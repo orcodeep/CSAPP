@@ -165,3 +165,36 @@ So if block bits `b` = 5 then 2<sup>5</sup> different addresses are automaticall
 
 We use a simple `LRU` where on access we boost its age to the max age (`255`) and the ages of all the other lines in the set get decremented by 1.
 
+# trans.c
+
+`b` = 5 means that 2<sup>5</sup> = 32 consecutive bytes are in the same block.
+
+If you don’t know the starting address of the array, you cannot be 100% certain that the first 32 bytes lie cleanly in a single block.
+
+But here is the important part:
+
+- The relative layout ensures that some sequence of 32 consecutive bytes must be in the same block.
+
+**If the array starts at address:**
+
+`Base = 0x...17`   (23 mod 32) 
+
+Then the first block is:
+
+`0x...00 to 0x...1F`
+
+- array’s first element is at offset 23 inside that block.
+
+- So the first 9 bytes of the array are in block `0`,
+and the next 32 bytes spill into the next block.
+
+So for a matrix of `ints`:
+<pre>
+ Array element	Byte range	 Fits in block 0?
+--------------- ------------ ------------------
+ A[0][0]	     bytes 0–3	        ✔
+ A[0][1]	     bytes 4–7	        ✔
+ A[0][2]	     bytes 8–11	       ❌ crosses boundary
+</pre>
+
+
