@@ -23,15 +23,23 @@ char transpose_submit_desc[] = "Transpose submission";
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
     int Block = 8;
-    for(int ii = 0; ii < N; ii = ii+Block)
-    { 
-        for(int jj = 0; jj < M; jj = jj+Block)
+    for(int ii = 0; ii < N; ii += Block)
+    {
+        for(int jj = 0; jj < M; jj += Block)
         {
+            // when (ii == jj) the A and B blocks frequently map to the same set because direct mapped
+            // so accessing one evicts the other. so keeping A element int tmp ensures we do not need
+            //  A again after its been evicted by access to B.
+            int tmp[Block];
             for (int i = ii; i < ii + Block && i < N; i++)
             {
                 for (int j = jj; j < jj + Block && j < M; j++)
                 {
-                    B[j][i] = A[i][j];
+                    tmp[j - jj] = A[i][j];
+                }
+                for (int j = jj; j < jj + Block && j < M; j++)
+                {
+                    B[j][i] = tmp[j - jj];
                 }
             }
         }
