@@ -186,9 +186,9 @@ Then the first block is:
 - array’s first element is at offset 23 inside that block.
 
 - So the first 9 bytes of the array are in block `0`,
-and the next 32 bytes spill into the next block.
+and the next 32 bytes would spill into the next block.
 
-So for a matrix of `ints`:
+So for a matrix of `ints` if array's offset = 23 inside that block:
 <pre>
  Array element	Byte range	 Fits in block 0?
 --------------- ------------ ------------------
@@ -197,4 +197,6 @@ So for a matrix of `ints`:
  A[0][2]	     bytes 8–11	       ❌ crosses boundary
 </pre>
 
+A value is counted as belonging to a block only if all bytes of that value lie inside that block.
 
+If the value crosses the 32-byte boundary, then it occupies two blocks — and the fast caches count that as `two block accesses`, not `one`.
