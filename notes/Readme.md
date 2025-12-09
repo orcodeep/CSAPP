@@ -93,4 +93,37 @@ Then it moves the rip forward by that number of instructions.
 
 So once the rip enters the buffer it knows how to execute each instruction.
 
+# Child process termination
+
+When a child process terminates, it becomes a zombie unitl its parent calls `wait()` (or `waitpid()`) to collect its exit status.
+
+If a parent doesnt call `wait()`, the child remains a zombie.
+
+## Reaping by init
+
+If the parent process itself terminates before collecting the child's exit status, the child is adopted by `init`(PID 1) or the system's equivalent (like systemd).
+
+`init` automatically calls `wait()` on orphaned children, so the child is reaped and removed from the process table.
+
+### What `wait()` returns
+
+On success:
+
+- Returns process ID (PID) of hre terminated child that was reaped.<br><br>
+<pre>
+pid_t pid = wait(NULL);
+</pre>
+
+On failure:
+
+- Returns -1 and sets `errno` to indicate the error.
+
+- Common errors:
+
+    - `ECHILD`: No child process exist 
+
+    - `EINTR`: Interrupted by a signal before any child terminated
+
+
+
 
