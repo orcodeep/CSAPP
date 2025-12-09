@@ -109,7 +109,7 @@ If the parent process itself terminates before collecting the child's exit statu
 
 On success:
 
-- Returns process ID (PID) of hre terminated child that was reaped.<br>
+- Returns process ID (PID) of the terminated child that was reaped.<br>
 <pre>
 pid_t pid = wait(NULL);
 </pre>
@@ -174,7 +174,7 @@ If a signal interrupts a program while one of these structures is being used, ca
 
 POSIX standard lists `exit()` as not async-signal-safe.
 
-**_exit()** declared in `<unistd.h>`:
+**`_exit()`** declared in `<unistd.h>`:
 
 - Performs immediate process termination
 
@@ -190,7 +190,7 @@ Steps it does:
 
 It is safe to call in contexts where normal cleanup is unsafe, like after `fork()` in the child process or in `signal_handlers`.
 
-## signals are not reliable counters for event
+## signals are not reliable event counters
 
 POSIX blocks the same signal type by default to avoid recursive/nested handlers, which could easily lead to:
 
