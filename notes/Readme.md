@@ -109,7 +109,7 @@ If the parent process itself terminates before collecting the child's exit statu
 
 On success:
 
-- Returns process ID (PID) of hre terminated child that was reaped.<br><br>
+- Returns process ID (PID) of hre terminated child that was reaped.<br>
 <pre>
 pid_t pid = wait(NULL);
 </pre>
@@ -123,6 +123,96 @@ On failure:
     - `ECHILD`: No child process exist 
 
     - `EINTR`: Interrupted by a signal before any child terminated
+
+#### Note: 
+
+`wait()` will set the system's internal `errno` when it fails, even if you dont include `<errno.h>` in your program.
+
+- `wait()` is implemented in the C library or kernel interface. It always writes to internal `errno` on failure.
+
+- Including `<errno.h>` inly gives your program a declaration to access `errno` safely, it does not affect whether the system sees it.
+
+# Signal Handler
+
+A signal handler can be invoked asymchronously by the kernel, interrupting whatever code was running at the moment. This means the program could be in the middle of modifying a global state, including:
+
+- Memory allocator (malloc/ free) data structures.
+
+- Standard I/O buffers (stdoud, stderr)
+
+- File descriptor tables.
+
+**While a signal handler is running, signals of the same type being handled are blocked.**
+
+**If a signal of other type arrives while a handler is running, the handler is interrupted and the handler for the latest signal that arrived is run. If again a new signal of different type than the current arrives while this handler is running same process is repeated**
+
+**The kernel makes the process handle the signals from LSB to MSB in the bit vector**
+
+## Why `exit()` is unsafe to use from signal handlers
+
+The `exit()` function does a lot of work internally:
+
+1. Flushes stdio buffers (`fflush(stdout)`)
+
+    - modifies global `FILE` structures
+
+2. Calls functions registered with `atexit()` i.e calls `atexit()` handlers
+
+    - might run any functions, including ones that use global state or call unsafe functions.
+
+3. Closes open files
+
+    - updates internal file tables, which are a shared global state
+
+If a signal interrupts a program while one of these structures is being used, calling `exit()` from the signal handler can:
+
+- Corrupt memory structures
+
+- Cause deadlocks 
+
+- Lead to undefined behaviour
+
+POSIX standard lists `exit()` as not async-signal-safe.
+
+**_exit()** declared in `<unistd.h>`:
+
+- Performs immediate process termination
+
+Steps it does:
+
+1. Does not flush stdio buffers
+
+2. Does not call `atexit()` handlers
+
+3. Does not perform normal cleanup
+
+    - just terminates the process and returns the status to OS.
+
+It is safe to call in contexts where normal cleanup is unsafe, like after `fork()` in the child process or in `signal_handlers`.
+
+## signals are not reliable counters for event
+
+POSIX blocks the same signal type by default to avoid recursive/nested handlers, which could easily lead to:
+
+- Stack overflow if a signal keeps interrupting itself.
+
+- Reentrancy problems if the handler is not carefully written.
+
+That's why signals alone are not guarenteed to be reliable counters for multiple events.
+
+## Why errno should be saved in a signal_handler
+
+A signal handler can be invoked asynchronously, interrupting whatever code was running.<br>
+At that moment:
+
+- The program may have a meaningful value in errno from some system call or library function.
+
+- If your signal handler calls any functions that might set `errno`(like `write()`, `read()`, etc.), it will overwrite the original value.
+
+- This can confuse the code which was originally interrupted, which may rely on the original `errno`.
+
+So in a signal handler we should save the `errno` in a local int variable before the actual handler code starts and after the handler code is finished, write the previously saved errno state to `errno`.
+
 
 
 
