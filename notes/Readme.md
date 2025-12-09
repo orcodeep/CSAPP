@@ -194,8 +194,6 @@ It is safe to call in contexts where normal cleanup is unsafe, like after `fork(
 
 `printf`, `fprintf`, `sprintf`, `malloc`, `free`, `exit()`... are not safe to be used by signal handlers.
 
-A reentrant function only uses local variables on the stack or variables passes in as parameters. This ensures that each invocation of the function has its own separate memory and does not intefere with other calls, including the ones interrupted by signals.
-
 _A function is reentrant if:_
 
 `It does not use shared mutable state (global variables, static variables, shared buffers)`,
@@ -207,6 +205,14 @@ OR
 AND
 
 `It does not call non-reentrant/unsafe functions`.
+
+This ensures that each invocation of the function has its own separate memory and does not intefere with other calls, including the ones interrupted by signals.
+
+By "invocations", I mean:
+
+1. The main program or thread that was interrupted by the signal.
+
+2. Other signal handlers that might run if another signal arrives.
 
 ## signals are not reliable event counters
 
