@@ -146,7 +146,7 @@ A signal handler can be invoked asymchronously by the kernel, interrupting whate
 
 **If a signal of other type arrives while a handler is running, the handler is interrupted and the handler for the latest signal that arrived is run. If again a new signal of different type than the current arrives while this handler is running same process is repeated**
 
-**The kernel makes the process handle the signals from LSB to MSB in the bit vector**
+**The kernel delivers (makes the process handle the signals) the signals from LSB to MSB in the bit vector**
 
 ## Why `exit()` is unsafe to use from signal handlers
 
@@ -190,6 +190,24 @@ Steps it does:
 
 It is safe to call in contexts where normal cleanup is unsafe, like after `fork()` in the child process or in `signal_handlers`.
 
+## **`Reentrancy` avoids shared state issues**
+
+`printf`, `fprintf`, `sprintf`, `malloc`, `free`, `exit()`... are not safe to be used by signal handlers.
+
+A reentrant function only uses local variables on the stack or variables passes in as parameters. This ensures that each invocation of the function has its own separate memory and does not intefere with other calls, including the ones interrupted by signals.
+
+_A function is reentrant if:_
+
+`It does not use shared mutable state (global variables, static variables, shared buffers)`,
+
+OR
+
+`If it does, access to that shared state is properly synchronized`,
+
+AND
+
+`It does not call non-reentrant/unsafe functions`.
+
 ## signals are not reliable event counters
 
 POSIX blocks the same signal type by default to avoid recursive/nested handlers, which could easily lead to:
@@ -213,7 +231,52 @@ At that moment:
 
 So in a signal handler we should save the `errno` in a local int variable before the actual handler code starts and after the handler code is finished, write the previously saved errno state to `errno`.
 
+# global shared variables should be declared `volatile`
 
+If both the main subroutines and the signal handler can update the same global variable, that variable should be a `volatile` or else compiler may put the variable in a register.
 
+**Using `volatile` tells the compiler to always read/write the variable from memory(cpu_cache, ram whatever(hardware managed)).**
+
+Why its a problem:
+
+- Registers are compiler managed storage. If the compiler keeps the variable in a register, it might never read updates made by a signal handler.<br><br>
+main routine/subroutine catches the variable in a register while the signal handler updates memory - the main routine keeps using the old value.
+
+# Temporarily blocking all signals to protect shared data structures
+
+The signals should be blocked while a handler is accessing a shared data structure to protect possible corruption because:
+
+- A signal can be delivered while the main program is executing code or another signal handler is executing. So if handler functions use the global/static variables, it might be interrupted by other handlers which may access it. So you can get inconsistent state or data races leading to undefined behaviour.
+
+## If no increments needed global flag should be declared as `volatile sig_atomic_t`
+
+An increment is a multi-step operation that requires a read -> modify -> write sequence not a single indivisible operation.
+
+Why this is a problem:
+
+Imagine main routine is doing `counter++` and a signal arrives in the middle:
+
+- Main reads `counter = 5`
+
+- Signal handler runs and sets say `counter = 10`
+
+- Main continues: adds 1 -> 5+1 = 6
+
+- Main writes 6 back to counter.
+
+Result: The update by the signal handler is lost. The main routine overwrite it. So increment is not atomic.
+
+**If no increment needed, `sig_atomic_T` alone is enough and there is no need to block signals**
+
+Here's why:
+
+- `sig_atomic_t` guarentees that a **read or write of the variable is atomic**, meaning it can't be interrupted in the middle.
+
+- So if a signal arrives at any time, the main routine will either see the old value or the new value - never a corrupted one.
+
+**If you truly want the value set by the handler**, you need to make the read -> write -> modify sequence atomic:
+
+- Block signals arount the increment.<br><br>
+This ensures the handler cannot run in the middle of your increment, **so you are always incrementing the latest handler value**.
 
 
