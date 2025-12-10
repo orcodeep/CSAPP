@@ -285,4 +285,13 @@ Here's why:
 - Block signals arount the increment.<br><br>
 This ensures the handler cannot run in the middle of your increment, **so you are always incrementing the latest handler value**.
 
+# subtle bugs
+
+## Race between parent process and signal handlers
+
+![race](Race.jpg)
+
+## Explicit waiting in main for signals
+
+![wait](wait.jpg)
 
