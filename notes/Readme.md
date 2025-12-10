@@ -285,13 +285,83 @@ Here's why:
 - Block signals arount the increment.<br><br>
 This ensures the handler cannot run in the middle of your increment, **so you are always incrementing the latest handler value**.
 
-# subtle bugs
+# Subtle bugs
 
 ## Race between parent process and signal handlers
 
 ![race](Race.jpg)
 
+The parent process blocks the SIGCHILD signal before forking the child so that if the child terminates before the control reaches the lines where the parent adds the child to the job queue in the parent process, then the parent's sigchild_handler cant reap the child and remove it from the job queue before its even added to the queue by the parent.
+
+But the SIGCHILD signal was unblocked inside the child process because:
+
+- The child inherits the same mask as the parent after its fork.
+
+- It can have its own children and if the SIGCHILD signal is not unblocked for it then it wont be able to handle and reap its children when they terminate.
+
+- Unblocking the SIGCHILD signal inside the child doesn't affect the parent's blocklist ofcourse **becasue signal masks are per process**.
+
+Then all the signals are blocked before adding the child to the job list to protect the shared job queue.
+
+And then after the child is added, we restore the mask state which was true before we blocked the SIGCHILD before the `fork()` i.e the SIGCHILD signal unblocked and whatever the status of the rest of the signals at that time was.
+
 ## Explicit waiting in main for signals
 
-![wait](wait.jpg)
+![wasting cpu cycles](wait0.jpg)
+
+This wastes precious cpu cycles just spinning.
+
+![race](wait1.jpg)
+
+we cant use `pause()` because:
+
+- `pause()` sleeps until a new signal is delivered. And the while loop conditional is checked only after `pause()` returns.
+
+So if `SIGCHILD` already happend before the `pause()` call (i.e right after the while loop conditional was true) then:
+
+- The flag `pid` is set but the process still calls `pause()` (because the while loop check happened earlier).
+
+- Now no further signals may arrive because all the children may have terminated and sigchild_handle may have reap all the terminated children.
+
+- Sp `pause()` sleeps forever and the loop body never ends because the loop body never resumes.
+
+_Could the user press ctrl-c and wake it then terminate the process?_
+
+**Yes** if sigint isnt ignored, but that is an external intervention. A correct program must not depend on random signals from outside to function.
+
+#### Important points about `pause()`
+
+The pause() function causes the calling process to sleep until a signal is delivered that either terminates the process or **invokes a signal-catching function**.
+
+key points:
+
+- **Signal with a handler**: pause() returns after the handler runs and wakes the process.
+
+- **Signal with a default acion** = terminate.<br>
+process terminates, never returns from `pause()`.
+
+- **Signal ignored**: if the signal is ignored, `pause()` continues sleeping - it does not wake.
+
+- **Signal blocked**: signal becomes pending, `pause()` does not wake.
+
+### Solution:
+
+![wont work](wait2.jpg)
+
+we have to use `sigsuspend()`.<br>
+**Blocking and unblocking around `pause()` wont work** as:
+
+- Blocking the signal just makes it `pending`.
+
+- `pause()` is already executing, waiting for a signal to wake it.<br><br>
+BUT,<br><br>
+Signals are only delivered to wake the process if they arrive while `pause()` is sleeping and the signal is unblocked.
+
+- Unblocking now delivers the SIGCHILD signal and the handler runs. 
+
+- But signals that were pending before `pause()` or delivered while `blocked` do not automatically wake the already sleeping `pause()`.
+
+![solution](wait3.jpg "solution")
+
+`sigsuspend()` uses whatever the mask was previously so that it can sleep until a signal we desire arrives.
 
