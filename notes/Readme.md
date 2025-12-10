@@ -237,7 +237,7 @@ At that moment:
 
 So in a signal handler we should save the `errno` in a local int variable before the actual handler code starts and after the handler code is finished, write the previously saved errno state to `errno`.
 
-# global shared variables should be declared `volatile`
+## global shared variables should be declared `volatile`
 
 If both the main subroutines and the signal handler can update the same global variable, that variable should be a `volatile` or else compiler may put the variable in a register.
 
@@ -248,7 +248,7 @@ Why its a problem:
 - Registers are compiler managed storage. If the compiler keeps the variable in a register, it might never read updates made by a signal handler.<br><br>
 main routine/subroutine catches the variable in a register while the signal handler updates memory - the main routine keeps using the old value.
 
-# Temporarily blocking all signals to protect shared data structures
+## Temporarily blocking all signals to protect shared data structures
 
 The signals should be blocked while a handler is accessing a shared data structure to protect possible corruption because:
 
@@ -285,7 +285,7 @@ Here's why:
 - Block signals arount the increment.<br><br>
 This ensures the handler cannot run in the middle of your increment, **so you are always incrementing the latest handler value**.
 
-# Subtle bugs
+# Subtle bugs between processes and signal handlers
 
 ## Race between parent process and signal handlers
 
