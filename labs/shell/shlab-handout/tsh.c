@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L // <-- added this for vscode intellisense 
 /* 
  * tsh - A tiny shell program with job control
  * 
@@ -165,6 +166,45 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
+    // we have to make eval with other functions and constants already given
+    char* argv[MAXARGS];
+    int bg = parseline(cmdline, argv);
+    if (argv[0] == NULL)
+        return; // ignore empty lines
+
+    if (builtin_cmd(argv))
+        return;
+        
+    else if (!strcmp("fg", argv[0]) || !strcmp("bg", argv[0]))
+        do_bgfg(argv);
+
+    // non builtin commands
+    else
+    {
+        pid_t pid;
+        if ((pid = fork()) == 0) // child process
+        {
+            if(setpgid(0, 0) < 0)
+            {
+                fprintf(stderr, "setpgid error: %s\n", strerror(errno));
+                _exit(1);
+            }
+            if(execve(argv[0], argv, environ) < 0)
+            {
+                fprintf(stderr, "execve error: %s\n", strerror(errno));
+                _exit(1);
+            }
+        }
+        else
+        {
+            int state = bg ? BG : FG;  // only foreground or background at creation
+            addjob(jobs, pid, state, cmdline);
+
+            if(!bg)
+                waitfg(pid);
+        }
+    }
+
     return;
 }
 
@@ -186,41 +226,47 @@ int parseline(const char *cmdline, char **argv)
     strcpy(buf, cmdline);
     buf[strlen(buf)-1] = ' ';  /* replace trailing '\n' with space */
     while (*buf && (*buf == ' ')) /* ignore leading spaces */
-	buf++;
+	    buf++;
 
     /* Build the argv list */
     argc = 0;
-    if (*buf == '\'') {
-	buf++;
-	delim = strchr(buf, '\'');
-    }
-    else {
-	delim = strchr(buf, ' ');
-    }
-
-    while (delim) {
-	argv[argc++] = buf;
-	*delim = '\0';
-	buf = delim + 1;
-	while (*buf && (*buf == ' ')) /* ignore spaces */
-	       buf++;
-
-	if (*buf == '\'') {
+    if (*buf == '\'') 
+    {
 	    buf++;
 	    delim = strchr(buf, '\'');
-	}
-	else {
-	    delim = strchr(buf, ' ');
-	}
+    }
+    else 
+    {
+	 delim = strchr(buf, ' ');
+    }
+
+    while (delim) 
+    {
+	    argv[argc++] = buf;
+	    *delim = '\0';
+	    buf = delim + 1;
+	    while (*buf && (*buf == ' ')) /* ignore spaces */
+	           buf++;
+
+	    if (*buf == '\'') 
+        {
+	        buf++;
+	        delim = strchr(buf, '\'');
+	    }
+	    else 
+        {
+	        delim = strchr(buf, ' ');
+        }
     }
     argv[argc] = NULL;
-    
+
     if (argc == 0)  /* ignore blank line */
 	return 1;
 
     /* should the job run in the background? */
-    if ((bg = (*argv[argc-1] == '&')) != 0) {
-	argv[--argc] = NULL;
+    if ((bg = (*argv[argc-1] == '&')) != 0) 
+    {
+	    argv[--argc] = NULL;
     }
     return bg;
 }

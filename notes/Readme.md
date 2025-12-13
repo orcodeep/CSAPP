@@ -148,7 +148,7 @@ A signal handler can be invoked asymchronously by the kernel, interrupting whate
 
 **The kernel delivers (makes the process handle the signals) the signals from LSB to MSB in the bit vector**
 
-## Why `exit()` is unsafe to use from signal handlers
+## Why `exit()` is unsafe to use from signal handlers and from forked processes
 
 The `exit()` function does a lot of work internally:
 
@@ -164,7 +164,7 @@ The `exit()` function does a lot of work internally:
 
     - updates internal file tables, which are a shared global state
 
-If a signal interrupts a program while one of these structures is being used, calling `exit()` from the signal handler can:
+1\. If a signal interrupts a program while one of these structures is being used, calling `exit()` from the signal handler can:
 
 - Corrupt memory structures
 
@@ -173,6 +173,18 @@ If a signal interrupts a program while one of these structures is being used, ca
 - Lead to undefined behaviour
 
 POSIX standard lists `exit()` as not async-signal-safe.
+
+2\.In a child process after `fork` (before execve)
+
+After `fork()`, the child shares copies of stdio buffers with the parent.
+
+If the child calls `exit()`:
+
+- Buffers get flushed → could duplicate output that the parent will also flush
+
+- `atexit()` handlers run → could interfere with parent resources
+
+_It’s safe after `execve()` succeeds, because the child image is replaced anyway_
 
 **`_exit()`** declared in `<unistd.h>`:
 
