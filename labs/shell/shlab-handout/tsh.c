@@ -174,35 +174,50 @@ void eval(char *cmdline)
 
     if (builtin_cmd(argv))
         return;
-        
-    else if (!strcmp("fg", argv[0]) || !strcmp("bg", argv[0]))
-        do_bgfg(argv);
 
-    // non builtin commands
+    // non builtin commands        
+    sigset_t mask, prev;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    // block signals for process
+    sigprocmask(SIG_BLOCK, &mask, &prev);    
+
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        fprintf(stderr, "fork error: %s\n", strerror(errno));
+        sigprocmask(SIG_SETMASK, &prev, NULL);
+        return;
+    }
+    else if (pid == 0) // child process
+    {
+        // unblock the signals for child process
+        sigprocmask(SIG_SETMASK, &prev, NULL);
+
+        if(setpgid(0, 0) < 0)
+        {
+            fprintf(stderr, "setpgid error: %s\n", strerror(errno));
+            _exit(1);
+        }
+        if(execve(argv[0], argv, environ) < 0)
+        {
+            fprintf(stderr, "execve error: %s\n", strerror(errno));
+            _exit(1);
+        }
+    }
     else
     {
-        pid_t pid;
-        if ((pid = fork()) == 0) // child process
-        {
-            if(setpgid(0, 0) < 0)
-            {
-                fprintf(stderr, "setpgid error: %s\n", strerror(errno));
-                _exit(1);
-            }
-            if(execve(argv[0], argv, environ) < 0)
-            {
-                fprintf(stderr, "execve error: %s\n", strerror(errno));
-                _exit(1);
-            }
-        }
-        else
-        {
-            int state = bg ? BG : FG;  // only foreground or background at creation
-            addjob(jobs, pid, state, cmdline);
+        int state = bg ? BG : FG;  // only foreground or background at creation
+        addjob(jobs, pid, state, cmdline);
 
-            if(!bg)
-                waitfg(pid);
-        }
+        // unblock the signals
+        sigprocmask(SIG_SETMASK, &prev, NULL);
+
+        if(!bg)
+            waitfg(pid);
+        else
+            printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
+            /* pid2jid(pid) is jid */
     }
 
     return;
@@ -277,6 +292,18 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
+    if (!strcmp(argv[0], "quit"))
+        exit(0);
+    else if (!strcmp(argv[0], "jobs")){
+        listjobs(jobs);
+        return 1;
+    }
+    else if (!strcmp("fg", argv[0]) || !strcmp("bg", argv[0]))
+    {
+        do_bgfg(argv);
+        return 1;
+    }
+
     return 0;     /* not a builtin command */
 }
 
@@ -285,6 +312,11 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
+    if (!strcmp(argv[0], "fg"))
+    {
+        
+    }
+
     return;
 }
 
