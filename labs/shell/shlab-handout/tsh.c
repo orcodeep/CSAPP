@@ -312,9 +312,44 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
+    if (argv[1] == NULL) {
+        fprintf(stderr, "%s command requires jid(job-id) argument\n", argv[0]);
+        return;
+    }
+
+    // argv[1] is a string not an int
+    char *endptr;
+    int jid = strtol(argv[1], &endptr, 10);
+    if (*endptr != '\0') {
+        fprintf(stderr, "%s: argument for this cmd must be a numeric job ID\n", argv[0]);
+        return;
+    }
+
+    struct job_t* job = getjobjid(jobs, jid);  // try as JID
+    if (job == NULL)
+        job = getjobpid(jobs, jid);            // try as PID
+    if (job == NULL) {
+        fprintf(stderr, "%s: No such job or process: %d\n", argv[0], jid);
+        return;
+    }
+    
+    pid_t pid = job->pid;
+
+    if (job->state == ST){
+        if (kill(-pid, SIGCONT) < 0)
+            perror("kill (SIGCONT) failed");
+    }
+
     if (!strcmp(argv[0], "fg"))
     {
+        job->state = FG;
+        waitfg(pid);
         
+    }
+    else if (!strcmp(argv[0], "bg"))
+    {
+        job->state = BG;
+        fprintf(stderr, "[%d] (%d) %s\n", job->jid, job->pid, job->cmdline);
     }
 
     return;
@@ -325,6 +360,78 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    /*
+     * Blocking SIGCHLD does not prevent waitpid from seeing child state changes.
+   
+       - It only prevents the signal handler from being invoked prematurely.
+   
+       - waitpid works directly with the kernel process table; signals are just notifications.
+
+     * Signals (like SIGCHLD) are a notification mechanism: 
+       the kernel tells the process “something happened.”
+
+       Process state changes (like a child exiting or stopping) 
+       are tracked in the kernel, independently of signals.
+
+       So:   
+       If SIGCHLD is blocked, the signal is not delivered to your process yet.  
+
+       But the child’s state still changes in the kernel.   
+
+       waitpid looks directly at the child’s state in the kernel.
+    */
+    sigset_t mask_all, prev_mask;
+    sigfillset(&mask_all);
+    sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);  // block all signals
+
+    /* when the parent(grp lead) and its children in the grp running in the foreground 
+       all get reaped there are no more processes that are running in the foreground. 
+
+       When waitpid(-pgid, &status, ...) returns the pid of group leader,
+       1) and you detect that the group leader terminated WIFEXITED(status) or WIFSIGNALED(status), you:
+    
+          deletejob(jobs, pid);
+
+       2) if you detect that group leader stopped (WIFSTOPPED(status)), you:
+
+          job->state = ST;
+
+        Why we ignore stopped children
+
+     **In a job, some processes might stop temporarily, but the job is considered running 
+       until the leader stops or terminates.
+
+     **Only the leader’s stop or termination triggers shell-level job state changes (ST or removal).
+
+     */
+    while ((fgpid(jobs)) != 0)
+    {
+        pid_t ret; int status;
+        ret = waitpid(-pid, &status, WNOHANG | WUNTRACED);
+        if(ret > 0)
+        {
+            if(ret == pid) // grp leader state changed
+            {
+                if (WIFEXITED(status) || WIFSIGNALED(status))
+                    deletejob(jobs, pid);
+                else if (WIFSTOPPED(status))
+                    getjobpid(jobs, pid)->state = ST;
+            }
+        }
+
+        else if (ret == 0) // no child changed state yet  
+        {
+            sigset_t tmp_mask;
+            sigfillset(&tmp_mask);
+            sigdelset(&tmp_mask, SIGCHLD);   // now SIGCHLD is NOT blocked
+            sigsuspend(&tmp_mask);           // sleep until SIGCHLD
+        }           
+
+        else if (ret == -1 && errno == ECHILD)
+            break; // no more processes in the job
+    }
+    
+    sigprocmask(SIG_SETMASK, &prev_mask, NULL); // restore original mask
     return;
 }
 
