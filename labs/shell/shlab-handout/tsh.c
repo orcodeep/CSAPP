@@ -201,8 +201,12 @@ void eval(char *cmdline)
         }
         if(execve(argv[0], argv, environ) < 0)
         {
-            fprintf(stderr, "execve error: %s\n", strerror(errno));
-            _exit(1);
+            // Match the reference shell output exactly
+            printf("%s: Command not found\n", argv[0]);
+            exit(0); // Use exit(0) instead of _exit(1) for this lab, though _exit is safer.
+            /* Before killing the process, C will "clean up." Most importantly, it flushes the stdout buffer.
+            This guarantees that your printf("%s: Command not found\n", ...) actually gets sent to the terminal 
+            */
         }
     }
     else
@@ -213,11 +217,12 @@ void eval(char *cmdline)
         // unblock the signals
         sigprocmask(SIG_SETMASK, &prev, NULL);
 
-        if(!bg)
+        if (!bg) {
             waitfg(pid);
-        else
+        } else {
             printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
-            /* pid2jid(pid) is jid */
+        }
+
     }
 
     return;
@@ -380,9 +385,12 @@ void waitfg(pid_t pid)
 
        waitpid looks directly at the child’s state in the kernel.
     */
-    sigset_t mask_all, prev_mask;
-    sigfillset(&mask_all);
-    sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);  // block all signals
+    sigset_t mask, prev_mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+
+    /* Block SIGCHILD */
+    sigprocmask(SIG_BLOCK, &mask, &prev_mask);  // block all signals
 
     /* when the parent(grp lead) and its children in the grp running in the foreground 
        all get reaped there are no more processes that are running in the foreground. 
@@ -421,10 +429,8 @@ void waitfg(pid_t pid)
 
         else if (ret == 0) // no child changed state yet  
         {
-            sigset_t tmp_mask;
-            sigfillset(&tmp_mask);
-            sigdelset(&tmp_mask, SIGCHLD);   // now SIGCHLD is NOT blocked
-            sigsuspend(&tmp_mask);           // sleep until SIGCHLD
+            /* Automatically unblock SIGCHILD and sleep */
+            sigsuspend(&prev_mask);
         }           
 
         else if (ret == -1 && errno == ECHILD)
@@ -448,6 +454,8 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
+    
+
     return;
 }
 

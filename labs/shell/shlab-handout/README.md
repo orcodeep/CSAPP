@@ -114,6 +114,32 @@ So even though the child is gone, the exit info is preserved in status, allowing
 
 **Only the leader’s stop or termination triggers shell-level job state changes (ST or removal).**
 
+## Why some blocking required before waiting period
+
+The reason for blocking SIGCHILD before eaiting period is to avoid race.
+
+1. You check `fgpid(jobs) != 0`
+
+2. A child changes state and the kernel generates `SIGCHILD` 
+
+3. The signal handler runs before you call `sigsuspend`
+
+4. You then call `sigsuspend` and sleep forever because no more `SIGCHILD` is pending.
+
+Blocking `SIGCHILD` closes this race.
+
+## why waking from sigsuspend on only `SIGCHILD` is wrong
+
+`SIGINT` / `SIGSTP` would be delayed
+
+shell would feel unresponsive
+
+you would reintroduce subtle races.
+
+we shouldnt ignore `SIGINT`/`SIGSTP` because `waitpid()` would ignore them anyway but the signal_handlers for them would be able to run.
+
+
+
 
 
 
