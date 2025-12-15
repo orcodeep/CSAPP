@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L // <-- for vscode INTELLISENSE
 /* 
  * tsh - A tiny shell program with job control
  * 
@@ -96,6 +97,14 @@ void Sigaddset(sigset_t *set, int signum);
 void Sigdelset(sigset_t *set, int signum);
 int Sigsuspend(const sigset_t *set);
 
+static void sio_reverse(char s[]);
+static void sio_ltoa(long v, char s[], int b);
+static size_t sio_strlen(char s[]);
+ssize_t sio_puts(char s[]);
+ssize_t sio_putl(long v);
+void sio_error(char s[]);
+
+
 /*
  * main - The shell's main routine 
  */
@@ -176,7 +185,39 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
+    char* argv[MAXARGS];
+    int bg = parseline(cmdline, argv);
+
+    if (builtin_cmd(argv))
+        return;
+
+    /* Block signals before forking */
+    sigset_t mask; sigset_t prev_mask;
+    Sigemptyset(&mask);
+    Sigaddset(&mask, SIGCHLD);
+    Sigprocmask(SIG_BLOCK, &mask, &prev_mask);
     
+    pid_t pid = Fork();
+    if(pid == 0) /* child */
+    {
+        setpgid(0, 0); /* set pgid of forked process to its pid*/
+        Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+        if(execve(argv[0], argv, environ) < 0) {
+            printf("%s: Command not found.\n", argv[0]);
+            exit(1);
+        }
+    }
+
+    /* parent */
+    int state = bg ? BG : FG;
+    addjob(jobs, pid, state, cmdline);
+    Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+
+    if(!bg){
+        waitfg(pid);
+    } else {
+        printf("[%d] (%d) %s", getjobpid(jobs, pid)->jid, pid, cmdline);
+    }
 
     return;
 }
@@ -244,6 +285,16 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
+    if (!strcmp(argv[0], "quit")) {
+        exit(0);
+    } else if (!strcmp(argv[0], "jobs")) {
+        listjobs(jobs);
+        return 1;
+    } else if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg")) {
+        do_bgfg(argv);
+        return 1;
+    }
+
     return 0;     /* not a builtin command */
 }
 
@@ -252,7 +303,15 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
-    return;
+    /* A race condition can occur if a child process terminates or stops 
+    while the shell is still in the middle of updating its status. */
+    sigset_t mask, prev_mask;
+    Sigfillset(&mask);
+    Sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+
+    /* Need to do */
+
+    
 }
 
 /* 
@@ -260,6 +319,11 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    sigset_t mask;
+    Sigemptyset(&mask);
+    while(fgpid(jobs)) { /* The sigchld_handler will make sure to update the joblist when a job is done */
+        Sigsuspend(&mask);
+    }
     return;
 }
 
@@ -276,7 +340,51 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    return;
+    sigset_t mask_all, prev_mask;
+    sigfillset(&mask_all);
+
+    int olderrno = errno;
+    int status, pid;
+
+    while((pid = waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0) {
+        struct  job_t* job = getjobpid(jobs, pid);
+
+        if (pid == job->pid) { /* A job has the pid of the grp leader */
+
+            /* If the grp leader terminated normally or has been killed */
+            if(WIFEXITED(status) || WIFSIGNALED(status)) { 
+                int jid = job->jid; /* Save the JID before deleting the job struct so that if 
+                                       the job was killed by a signal we can print that.
+
+                                       i.e evade a Use-After-Free (or Use-After-Delete) error. */
+                
+
+                Sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+                deletejob(jobs, pid); // it also sets state = UNDEF 
+                Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+
+                /* If the job was killed by a signal */
+                if (WIFSIGNALED(status)) {
+                    sio_puts("Job [");
+                    sio_putl(jid);
+                    sio_puts("] (");
+                    sio_putl(pid);
+                    sio_puts(") terminated with signal ");
+                    sio_putl(WTERMSIG(status)); // The signal number that killed the job 
+                    sio_puts("\n");
+                    // _exit(0); <- dont exit as control should return to main() i.e the shell shouldnt terminate
+                }
+                
+            /* If the grp leader got stopped */
+            } else if (WIFSTOPPED(status)) {
+                Sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+                job->state = ST;
+                Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+            }
+        }
+    }
+
+    errno = olderrno;
 }
 
 /* 
@@ -286,7 +394,19 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-    return;
+    /* The sigint_handler of the terminal doesnt reap or print the details
+       of which process got killed.
+       
+       It sends the SIGINT signal to specifically the foreground processes 
+       when the user presses ctrl+c    
+    */
+
+    pid_t fg = fgpid(jobs);
+
+    if (fg != 0) {
+        kill(-fg, SIGINT);
+    }
+
 }
 
 /*
@@ -582,6 +702,64 @@ int Sigsuspend(const sigset_t *set)
     if (errno != EINTR)
         unix_error("Sigsuspend error");
     return rc;
+}
+
+static void sio_reverse(char s[])
+{
+    int c, i, j;
+
+    for (i = 0, j = strlen(s)-1; i < j; i++, j--) {
+        c = s[i];
+        s[i] = s[j];
+        s[j] = c;
+    }
+}
+
+static void sio_ltoa(long v, char s[], int b) 
+{
+    int c, i = 0;
+    int neg = v < 0;
+
+    if (neg)
+	v = -v;
+
+    do {  
+        s[i++] = ((c = (v % b)) < 10)  ?  c + '0' : c - 10 + 'a';
+    } while ((v /= b) > 0);
+
+    if (neg)
+	s[i++] = '-';
+
+    s[i] = '\0';
+    sio_reverse(s);
+}
+
+static size_t sio_strlen(char s[])
+{
+    int i = 0;
+
+    while (s[i] != '\0')
+        ++i;
+    return i;
+}
+
+ssize_t sio_puts(char s[]) /* Put string */
+{
+    return write(STDOUT_FILENO, s, sio_strlen(s)); //line:csapp:siostrlen
+}
+
+ssize_t sio_putl(long v) /* Put long */
+{
+    char s[128];
+    
+    sio_ltoa(v, s, 10); /* Based on K&R itoa() */  //line:csapp:sioltoa
+    return sio_puts(s);
+}
+
+void sio_error(char s[]) /* Put error message and exit */
+{
+    sio_puts(s);
+    _exit(1);                                      //line:csapp:sioexit
 }
 
 

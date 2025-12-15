@@ -1,3 +1,11 @@
+# Note
+
+1\. For **test03** to pass- sigchld_handler must be made because only that changes that state of the terminated processes. And `waitfg()` uses `getfg()` which depends on the state of the processes to remove a foreground job. 
+
+If we do not implement sigchld_handler then shell will keep waiting infinitely after executing a foreground process and not print the prompt.
+
+2\. For **test06** to pass we need to make `sigint_handler` and the `sigchld_handler` should also print the details of how and by which signal the job got killed. 
+
 # eval() and job control
 
 The main steps for handling a non-built-in command in eval() are:
@@ -29,7 +37,7 @@ AND<br>
 
 1\. Bring a stopped job to the foreground
 
-- Job state is `ST` (stopped)
+If Job state is `ST` (stopped)
 
 - `fg` changes state → `FG` and sends `SIGCONT`
 
@@ -41,7 +49,7 @@ AND<br>
 
 2\. Bring a running background job to the foreground
 
-- Job state is `BG`
+If Job state is `BG`
 
 - `fg` changes state → `FG`
 
@@ -57,36 +65,40 @@ Unlike fg it doesnt wait for the job to finish before printing the prompt again.
 
 **“waitfg waits for a foreground job to complete.”**
 
-Here, “**complete**” usually refers to the job no longer being in the foreground.
+sigsuspend temporarily replaces the signal mask and suspends the shell until a signal arrives.
 
-In practice, a foreground job is “done” in terms of waitfg if:
+Foreground wait = logical wait, not `waitpid()`
 
-- It terminates → all processes in the job exit.
+The processes of the fg job will be reaped in the sigchild handler not by the shell while its waiting for it to finish.
 
-- It is stopped → the user pressed Ctrl+Z; the job is no longer running in the foreground.
+## why waking from sigsuspend on only `SIGCHILD` is wrong
 
-So “**complete**” does not necessarily mean terminated — it means the shell can return control to the user because the foreground job is no longer actively running.
+`SIGINT` / `SIGSTP` would be delayed
+
+we shouldnt ignore `SIGINT`/`SIGSTP` because otherwise the signal_handlers for them wouldn't be able to run.
+
+shell would feel unresponsive.
 
 
-`SIGCHLD` tells the shell that one of its children changed state (`terminated`, `stopped`, `continued`).
+# Using waitpid
 
-The shell does not receive the SIGTSTP/SIGCONT directly — those go to the child process.
+The shell does not receive the SIGTSTP/SIGCONT directly — those go to the child process. waitpid directly asks the kernel for state change.
 
-1\. Using `sigsuspend`
+Return value > 0 (a PID) means- one child matching pid has changed state. That child may be:
 
-- sigsuspend temporarily replaces the signal mask and suspends the shell until a signal arrives.
+- terminated normally → WIFEXITED(status)
+- killed by a signal → WIFSIGNALED(status)
+- stopped → WIFSTOPPED(status)
 
-- In job control, the signal we care about is SIGCHLD (child changed state).
+Return value == 0 means- if `WNOHANG` was specified, child/children exists but no state change yet.
 
-- When the signal arrives, sigsuspend returns, allowing the shell to call waitpid to learn what happened.
+- so the `sigchld_handler` ran but it didnt get any processes to reap and also none were stopped.
 
-2\. Using waitpid
+Return value == -1 means- Error (or no children exist: `errno` = `ECHILD`)
 
-- After waking from sigsuspend, the shell calls waitpid(-pgid, &status, WNOHANG | WUNTRACED).
+**In a job, some processes might stop temporarily, but the job is considered running until the grp leader stops or terminates**.
 
-- `WNOHANG` ensures waitpid doesn’t block — we already slept in sigsuspend.
-
-- `WUNTRACED` ensures we detect stopped children.
+**Only the leader’s termination or stopping triggers shell-level job state changes (deletion or ST).**
 
 
 `waitpid` both reports the status and actually reaps the child:-
@@ -110,33 +122,9 @@ So even though the child is gone, the exit info is preserved in status, allowing
 
 - You inspect it using macros: WIFEXITED, WIFSIGNALED, WIFSTOPPED, etc.
 
-**In a job, some processes might stop temporarily, but the job is considered running until the grp leader stops or terminates**.
 
-**Only the leader’s stop or termination triggers shell-level job state changes (ST or removal).**
 
-## Why some blocking required before waiting period
 
-The reason for blocking SIGCHILD before eaiting period is to avoid race.
-
-1. You check `fgpid(jobs) != 0`
-
-2. A child changes state and the kernel generates `SIGCHILD` 
-
-3. The signal handler runs before you call `sigsuspend`
-
-4. You then call `sigsuspend` and sleep forever because no more `SIGCHILD` is pending.
-
-Blocking `SIGCHILD` closes this race.
-
-## why waking from sigsuspend on only `SIGCHILD` is wrong
-
-`SIGINT` / `SIGSTP` would be delayed
-
-shell would feel unresponsive
-
-you would reintroduce subtle races.
-
-we shouldnt ignore `SIGINT`/`SIGSTP` because `waitpid()` would ignore them anyway but the signal_handlers for them would be able to run.
 
 
 
