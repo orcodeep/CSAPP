@@ -1,4 +1,3 @@
-#define _POSIX_C_SOURCE 200809L // <-- added this for vscode intellisense 
 /* 
  * tsh - A tiny shell program with job control
  * 
@@ -86,6 +85,17 @@ void app_error(char *msg);
 typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
 
+/* csapp.c helper routines */
+pid_t Fork(void);
+void Execve(const char *filename, char *const argv[], char *const envp[]) ;
+void Kill(pid_t pid, int signum);
+void Sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+void Sigemptyset(sigset_t *set);
+void Sigfillset(sigset_t *set);
+void Sigaddset(sigset_t *set, int signum);
+void Sigdelset(sigset_t *set, int signum);
+int Sigsuspend(const sigset_t *set);
+
 /*
  * main - The shell's main routine 
  */
@@ -166,64 +176,7 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
-    // we have to make eval with other functions and constants already given
-    char* argv[MAXARGS];
-    int bg = parseline(cmdline, argv);
-    if (argv[0] == NULL)
-        return; // ignore empty lines
-
-    if (builtin_cmd(argv))
-        return;
-
-    // non builtin commands        
-    sigset_t mask, prev;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGCHLD);
-    // block signals for process
-    sigprocmask(SIG_BLOCK, &mask, &prev);    
-
-    pid_t pid = fork();
-
-    if (pid < 0) {
-        fprintf(stderr, "fork error: %s\n", strerror(errno));
-        sigprocmask(SIG_SETMASK, &prev, NULL);
-        return;
-    }
-    else if (pid == 0) // child process
-    {
-        // unblock the signals for child process
-        sigprocmask(SIG_SETMASK, &prev, NULL);
-
-        if(setpgid(0, 0) < 0)
-        {
-            fprintf(stderr, "setpgid error: %s\n", strerror(errno));
-            _exit(1);
-        }
-        if(execve(argv[0], argv, environ) < 0)
-        {
-            // Match the reference shell output exactly
-            printf("%s: Command not found\n", argv[0]);
-            exit(0); // Use exit(0) instead of _exit(1) for this lab, though _exit is safer.
-            /* Before killing the process, C will "clean up." Most importantly, it flushes the stdout buffer.
-            This guarantees that your printf("%s: Command not found\n", ...) actually gets sent to the terminal 
-            */
-        }
-    }
-    else
-    {
-        int state = bg ? BG : FG;  // only foreground or background at creation
-        addjob(jobs, pid, state, cmdline);
-
-        // unblock the signals
-        sigprocmask(SIG_SETMASK, &prev, NULL);
-
-        if (!bg) {
-            waitfg(pid);
-        } else {
-            printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
-        }
-
-    }
+    
 
     return;
 }
@@ -246,47 +199,41 @@ int parseline(const char *cmdline, char **argv)
     strcpy(buf, cmdline);
     buf[strlen(buf)-1] = ' ';  /* replace trailing '\n' with space */
     while (*buf && (*buf == ' ')) /* ignore leading spaces */
-	    buf++;
+	buf++;
 
     /* Build the argv list */
     argc = 0;
-    if (*buf == '\'') 
-    {
+    if (*buf == '\'') {
+	buf++;
+	delim = strchr(buf, '\'');
+    }
+    else {
+	delim = strchr(buf, ' ');
+    }
+
+    while (delim) {
+	argv[argc++] = buf;
+	*delim = '\0';
+	buf = delim + 1;
+	while (*buf && (*buf == ' ')) /* ignore spaces */
+	       buf++;
+
+	if (*buf == '\'') {
 	    buf++;
 	    delim = strchr(buf, '\'');
-    }
-    else 
-    {
-	 delim = strchr(buf, ' ');
-    }
-
-    while (delim) 
-    {
-	    argv[argc++] = buf;
-	    *delim = '\0';
-	    buf = delim + 1;
-	    while (*buf && (*buf == ' ')) /* ignore spaces */
-	           buf++;
-
-	    if (*buf == '\'') 
-        {
-	        buf++;
-	        delim = strchr(buf, '\'');
-	    }
-	    else 
-        {
-	        delim = strchr(buf, ' ');
-        }
+	}
+	else {
+	    delim = strchr(buf, ' ');
+	}
     }
     argv[argc] = NULL;
-
+    
     if (argc == 0)  /* ignore blank line */
 	return 1;
 
     /* should the job run in the background? */
-    if ((bg = (*argv[argc-1] == '&')) != 0) 
-    {
-	    argv[--argc] = NULL;
+    if ((bg = (*argv[argc-1] == '&')) != 0) {
+	argv[--argc] = NULL;
     }
     return bg;
 }
@@ -297,18 +244,6 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-    if (!strcmp(argv[0], "quit"))
-        exit(0);
-    else if (!strcmp(argv[0], "jobs")){
-        listjobs(jobs);
-        return 1;
-    }
-    else if (!strcmp("fg", argv[0]) || !strcmp("bg", argv[0]))
-    {
-        do_bgfg(argv);
-        return 1;
-    }
-
     return 0;     /* not a builtin command */
 }
 
@@ -317,46 +252,6 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
-    if (argv[1] == NULL) {
-        fprintf(stderr, "%s command requires jid(job-id) argument\n", argv[0]);
-        return;
-    }
-
-    // argv[1] is a string not an int
-    char *endptr;
-    int jid = strtol(argv[1], &endptr, 10);
-    if (*endptr != '\0') {
-        fprintf(stderr, "%s: argument for this cmd must be a numeric job ID\n", argv[0]);
-        return;
-    }
-
-    struct job_t* job = getjobjid(jobs, jid);  // try as JID
-    if (job == NULL)
-        job = getjobpid(jobs, jid);            // try as PID
-    if (job == NULL) {
-        fprintf(stderr, "%s: No such job or process: %d\n", argv[0], jid);
-        return;
-    }
-    
-    pid_t pid = job->pid;
-
-    if (job->state == ST){
-        if (kill(-pid, SIGCONT) < 0)
-            perror("kill (SIGCONT) failed");
-    }
-
-    if (!strcmp(argv[0], "fg"))
-    {
-        job->state = FG;
-        waitfg(pid);
-        
-    }
-    else if (!strcmp(argv[0], "bg"))
-    {
-        job->state = BG;
-        fprintf(stderr, "[%d] (%d) %s\n", job->jid, job->pid, job->cmdline);
-    }
-
     return;
 }
 
@@ -365,79 +260,6 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    /*
-     * Blocking SIGCHLD does not prevent waitpid from seeing child state changes.
-   
-       - It only prevents the signal handler from being invoked prematurely.
-   
-       - waitpid works directly with the kernel process table; signals are just notifications.
-
-     * Signals (like SIGCHLD) are a notification mechanism: 
-       the kernel tells the process “something happened.”
-
-       Process state changes (like a child exiting or stopping) 
-       are tracked in the kernel, independently of signals.
-
-       So:   
-       If SIGCHLD is blocked, the signal is not delivered to your process yet.  
-
-       But the child’s state still changes in the kernel.   
-
-       waitpid looks directly at the child’s state in the kernel.
-    */
-    sigset_t mask, prev_mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGCHLD);
-
-    /* Block SIGCHILD */
-    sigprocmask(SIG_BLOCK, &mask, &prev_mask);  // block all signals
-
-    /* when the parent(grp lead) and its children in the grp running in the foreground 
-       all get reaped there are no more processes that are running in the foreground. 
-
-       When waitpid(-pgid, &status, ...) returns the pid of group leader,
-       1) and you detect that the group leader terminated WIFEXITED(status) or WIFSIGNALED(status), you:
-    
-          deletejob(jobs, pid);
-
-       2) if you detect that group leader stopped (WIFSTOPPED(status)), you:
-
-          job->state = ST;
-
-        Why we ignore stopped children
-
-     **In a job, some processes might stop temporarily, but the job is considered running 
-       until the leader stops or terminates.
-
-     **Only the leader’s stop or termination triggers shell-level job state changes (ST or removal).
-
-     */
-    while ((fgpid(jobs)) != 0)
-    {
-        pid_t ret; int status;
-        ret = waitpid(-pid, &status, WNOHANG | WUNTRACED);
-        if(ret > 0)
-        {
-            if(ret == pid) // grp leader state changed
-            {
-                if (WIFEXITED(status) || WIFSIGNALED(status))
-                    deletejob(jobs, pid);
-                else if (WIFSTOPPED(status))
-                    getjobpid(jobs, pid)->state = ST;
-            }
-        }
-
-        else if (ret == 0) // no child changed state yet  
-        {
-            /* Automatically unblock SIGCHILD and sleep */
-            sigsuspend(&prev_mask);
-        }           
-
-        else if (ret == -1 && errno == ECHILD)
-            break; // no more processes in the job
-    }
-    
-    sigprocmask(SIG_SETMASK, &prev_mask, NULL); // restore original mask
     return;
 }
 
@@ -454,8 +276,6 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    
-
     return;
 }
 
@@ -698,5 +518,70 @@ void sigquit_handler(int sig)
     exit(1);
 }
 
+pid_t Fork(void) 
+{
+    pid_t pid;
+
+    if ((pid = fork()) < 0)
+	unix_error("Fork error");
+    return pid;
+}
+
+void Execve(const char *filename, char *const argv[], char *const envp[]) 
+{
+    if (execve(filename, argv, envp) < 0)
+	unix_error("Execve error");
+}
+
+void Kill(pid_t pid, int signum) 
+{
+    int rc;
+
+    if ((rc = kill(pid, signum)) < 0)
+	unix_error("Kill error");
+}
+
+void Sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
+{
+    if (sigprocmask(how, set, oldset) < 0)
+	unix_error("Sigprocmask error");
+    return;
+}
+
+void Sigemptyset(sigset_t *set)
+{
+    if (sigemptyset(set) < 0)
+	unix_error("Sigemptyset error");
+    return;
+}
+
+void Sigfillset(sigset_t *set)
+{ 
+    if (sigfillset(set) < 0)
+	unix_error("Sigfillset error");
+    return;
+}
+
+void Sigaddset(sigset_t *set, int signum)
+{
+    if (sigaddset(set, signum) < 0)
+	unix_error("Sigaddset error");
+    return;
+}
+
+void Sigdelset(sigset_t *set, int signum)
+{
+    if (sigdelset(set, signum) < 0)
+	unix_error("Sigdelset error");
+    return;
+}
+
+int Sigsuspend(const sigset_t *set)
+{
+    int rc = sigsuspend(set); /* always returns -1 */
+    if (errno != EINTR)
+        unix_error("Sigsuspend error");
+    return rc;
+}
 
 
