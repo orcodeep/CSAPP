@@ -1,10 +1,10 @@
 # Note
 
-1\. For **test03** to pass- sigchld_handler must be made because only that changes that state of the terminated processes. And `waitfg()` uses `getfg()` which depends on the state of the processes to remove a foreground job. 
+1\. For **test03** to pass- sigchld_handler must be made because only that changes that state of the terminated processes. And `waitfg()` uses `fgpid()` which depends on the state of the processes to remove a foreground job. 
 
 If we do not implement sigchld_handler then shell will keep waiting infinitely after executing a foreground process and not print the prompt.
 
-2\. For **test06** to pass we need to make `sigint_handler` and the `sigchld_handler` should also print the details of how and by which signal the job got killed. 
+2\. For **test06** to pass- we need to make `sigint_handler` and the `sigchld_handler` should also print the details of how and by which signal the job got killed. 
 
 # eval() and job control
 
