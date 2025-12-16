@@ -6,6 +6,8 @@ If we do not implement sigchld_handler then shell will keep waiting infinitely a
 
 2\. For **test06** to pass- we need to make `sigint_handler` and the `sigchld_handler` should also print the details of how and by which signal the job got killed. 
 
+The rest will pass after finishing `do_bgfg()` and `sigstp_handler`.
+
 # eval() and job control
 
 The main steps for handling a non-built-in command in eval() are:
@@ -33,6 +35,14 @@ AND<br>
 
 # do_bgfg()
 
+`bg`, `fg` usage:- `bg %Jid`, `fg %Jid`
+
+**A job can have multiple processes and you want them all to resume.**
+
+Each job has its own process group, set with setpgid() in eval().
+
+When you send kill(-pid, SIGCONT), the negative PID sends the signal to all processes in that job’s process group.
+
 ## The `fg` command can do both:
 
 1\. Bring a stopped job to the foreground
@@ -41,25 +51,25 @@ If Job state is `ST` (stopped)
 
 - `fg` changes state → `FG` and sends `SIGCONT`
 
-- Each job has its own process group, set with setpgid() in eval().
-
-- **A job can have multiple processes (e.g., a pipeline), and you want them all to resume.**
-
-- When you send kill(-pid, SIGCONT), the negative PID sends the signal to all processes in that job’s process group.
-
 2\. Bring a running background job to the foreground
 
 If Job state is `BG`
 
 - `fg` changes state → `FG`
 
-Waits for it to finish before the prompt is printed agin.
+**Waits for it to finish before the prompt is printed agin. It doesnt print job info.**
 
 ## The bg command:
 
-The bg <job> command restarts <job> by sending it a SIGCONT signal, and then runs it in
+<ul>
+<li>The bg %&lt;jid&gt; command restarts job by sending it a `SIGCONT` signal, and then runs it in background.</li>
 
-Unlike fg it doesnt wait for the job to finish before printing the prompt again.
+<li>If user gives `bg <pid>`- pid must be the pid of the grp leader of a job i.e the pgid of the job. Its stored in the job struct as `pid`.</li>
+</ul>
+
+
+**Unlike fg it doesnt wait for the job to finish before printing the prompt again. But it prints the job info before printing the prompt again.**
+
 
 # waitfg()
 

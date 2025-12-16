@@ -88,7 +88,6 @@ handler_t *Signal(int signum, handler_t *handler);
 
 /* csapp.c helper routines */
 pid_t Fork(void);
-void Execve(const char *filename, char *const argv[], char *const envp[]) ;
 void Kill(pid_t pid, int signum);
 void Sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
 void Sigemptyset(sigset_t *set);
@@ -203,7 +202,7 @@ void eval(char *cmdline)
         setpgid(0, 0); /* set pgid of forked process to its pid*/
         Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
         if(execve(argv[0], argv, environ) < 0) {
-            printf("%s: Command not found.\n", argv[0]);
+            printf("%s: Command not found\n", argv[0]);
             exit(1);
         }
     }
@@ -305,13 +304,69 @@ void do_bgfg(char **argv)
 {
     /* A race condition can occur if a child process terminates or stops 
     while the shell is still in the middle of updating its status. */
-    sigset_t mask, prev_mask;
-    Sigfillset(&mask);
-    Sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+    sigset_t mask_all, prev_mask;
+    Sigfillset(&mask_all);
 
-    /* Need to do */
+    /* This should be the first check or else:- char percent = argv[1][0]; is wrong. It will segfault */
+    if (argv[1] == NULL) {
+    printf("%s command requires PID or %%jobid argument\n", argv[0]);
+    return;
+    }
 
-    
+    char* endptr = NULL;
+    char percent = argv[1][0];
+    int state = (!strcmp(argv[0], "bg")) ? BG : FG;
+
+    if (percent == '%') {
+        char* jidstr = argv[1] + 1;
+        int jid = (int) strtoul(jidstr, &endptr, 10);
+        if (*jidstr == '\0' || *endptr != '\0') {
+            printf("%s: argument must be a PID or %%jobid\n", argv[0]);
+            return;
+        }
+
+        Sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+        struct job_t* job = getjobjid(jobs, jid);
+        if (job == NULL) {
+            printf("%s: No such job\n", argv[1]);
+            return;
+        }
+
+        kill(-job->pid, SIGCONT);
+        job->state = state;
+        Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+        if (state == FG) {
+            waitfg(job->pid);
+        } else {
+            printf("[%d] (%d) %s", jid, job->pid, job->cmdline);
+        }
+        return;
+
+    } else { /* if user gave no '%' at beginning */
+        char* pgidstr = argv[1];
+        int pgid = (int) strtoul(pgidstr, &endptr, 10);
+        if (*pgidstr == '\0' || *endptr != '\0') {
+            printf("%s: argument must be a PID or %%jobid\n", argv[0]);
+            return;
+        }
+
+        Sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+        struct job_t* job = getjobpid(jobs, pgid);
+        if (job == NULL) {
+            printf("(%s): No such process\n", argv[1]);
+            return;
+        }
+
+        kill(-pgid, SIGCONT);
+        job->state = state;
+        Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+        if (state == FG) {
+            waitfg(job->pid);
+        } else {
+            printf("[%d] (%d) %s", job->jid, pgid, job->cmdline);
+        }
+        return;
+    }
 }
 
 /* 
@@ -369,7 +424,7 @@ void sigchld_handler(int sig)
                     sio_putl(jid);
                     sio_puts("] (");
                     sio_putl(pid);
-                    sio_puts(") terminated with signal ");
+                    sio_puts(") terminated by signal ");
                     sio_putl(WTERMSIG(status)); // The signal number that killed the job 
                     sio_puts("\n");
                     // _exit(0); <- dont exit as control should return to main() i.e the shell shouldnt terminate
@@ -377,9 +432,19 @@ void sigchld_handler(int sig)
                 
             /* If the grp leader got stopped */
             } else if (WIFSTOPPED(status)) {
+                int jid = job->jid;
+
                 Sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
                 job->state = ST;
                 Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+
+                sio_puts("Job [");
+                sio_putl(jid);
+                sio_puts("] (");
+                sio_putl(pid);
+                sio_puts(") stopped by signal ");
+                sio_putl(WSTOPSIG(status)); // The signal number that killed the job 
+                sio_puts("\n");                
             }
         }
     }
@@ -401,12 +466,18 @@ void sigint_handler(int sig)
        when the user presses ctrl+c    
     */
 
-    pid_t fg = fgpid(jobs);
+    int olderrno = errno;
 
-    if (fg != 0) {
-        kill(-fg, SIGINT);
+    sigset_t mask_all, prev_mask;
+    Sigfillset(&mask_all);
+
+    pid_t pid;
+    Sigprocmask(SIG_BLOCK, &mask_all,&prev_mask);
+    if ((pid = fgpid(jobs)) > 0) {
+        kill(-pid, SIGINT);
     }
-
+    Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+    errno = olderrno;
 }
 
 /*
@@ -416,7 +487,18 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-    return;
+    int olderrno = errno;
+
+    sigset_t mask_all, prev_mask;
+    Sigfillset(&mask_all);
+
+    pid_t pid;
+    Sigprocmask(SIG_BLOCK, &mask_all,&prev_mask);
+    if ((pid = fgpid(jobs)) > 0) {
+        kill(-pid, SIGTSTP);
+    }
+    Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+    errno = olderrno;
 }
 
 /*********************
