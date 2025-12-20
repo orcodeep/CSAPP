@@ -374,11 +374,20 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    sigset_t mask;
-    Sigemptyset(&mask);
-    while(fgpid(jobs)) { /* The sigchld_handler will make sure to update the joblist when a job is done */
-        Sigsuspend(&mask);
+    sigset_t tmpmask;
+    Sigemptyset(&tmpmask); /* All signals unblocked in tmpmask */
+
+    sigset_t blockmask, prev_mask;
+    Sigemptyset(&blockmask);
+    Sigaddset(&blockmask, SIGCHLD);
+
+    /* Block SIGCHILD so that it doesnt update the joblist right after the while conditional before the Sigsuspend */
+    Sigprocmask(SIG_BLOCK, &blockmask, &prev_mask); 
+    while(fgpid(jobs) == pid) { /* The sigchld_handler makes sure to update the joblist when a job is done */
+        Sigsuspend(&tmpmask); /* temporarily replaces the signal mask. so SIGCHILD is not blocked when sleeping */
     }
+    Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+
     return;
 }
 
