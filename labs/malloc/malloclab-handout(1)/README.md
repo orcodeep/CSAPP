@@ -4,7 +4,7 @@ _This was 2016 handout for malloclab by utah uni_
 
 Start by unpacking malloclab-handout.zip. The only file you will be modifying and handing in is "mm.c". The "mdriver.c" program is a driver program that allows you to evaluate the performance of your solution. Use make to generate the driver code and run it as
 
-<pre>$ ./mdriver -V -t <traces file/folder></pre>
+<pre>$ ./mdriver -V -t &lt;traces file/folder&gt; </pre>
 
 where the -V flag displays helpful summary information.
 
