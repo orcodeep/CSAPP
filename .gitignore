@@ -3,4 +3,6 @@ labs/shell/shlab-handout/*
 !labs/shell/shlab-handout/README.md
 labs/malloc/rec9/*
 !labs/malloc/rec9/mm.c
+labs/malloc/malloclab-handout(1)/malloclab-handout/*
+!labs/malloc/malloclab-handout(1)/malloclab-handout/mm.c
 
