@@ -37,7 +37,7 @@ The mm_init function will be called once per benchmark run, so it can be called 
 
 2\. mm_malloc: The mm_malloc function returns a pointer to an allocated block payload of at least size bytes, where size is less than 232. The entire allocated block should lie within the heap region and should not overlap with any other allocated block.
 
-    - We’ll compare your implementation to the version of malloc supplied in the standard C library (libc). Since the libc malloc always returns payload pointers that are aligned to 16 bytes, your malloc implementation should do likewise and always return 16-byte aligned pointers.
+-   We’ll compare your implementation to the version of malloc supplied in the standard C library (libc). Since the libc malloc always returns payload pointers that are aligned to 16 bytes, your malloc implementation should do likewise and always return 16-byte aligned pointers.
 
 3\. mm_free: The mm_free function frees the block pointed to by ptr. It returns nothing.
 
