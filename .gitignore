@@ -1,6 +1,6 @@
 labs/shell/shlab-handout/*
 !labs/shell/shlab-handout/tsh.c
 !labs/shell/shlab-handout/README.md
-labs/malloc/malloclab-handout/*
-!labs/malloc/malloclab-handout/mm.c
+labs/malloc/rec9/*
+!labs/malloc/rec9/mm.c
 
