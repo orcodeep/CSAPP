@@ -1,11 +1,25 @@
 _This is the handout given in 2017 for malloclab by utah uni_
 
+`mm_check` and `mm_can_free` are debugging functions and they cause performance loss.<br>
+However, the driver is smarter than that.
+Almost all versions of the malloc lab driver (mdriver.c) work in two distinct phases:
+
+- Correctness Phase: It runs specific traces (like amptjp-bal.rep) and aggressively calls mm_check and `mm_can_free` to ensure your logic is sound. It does not time this phase.
+
+- Performance Phase: It runs the large traces without calling your checker functions. It only measures the time taken by mm_malloc and mm_free.
+
+So to see the naive implementation's score use `-n` flag.<br>
+<pre>./mdriver -n -t traces</pre>
+This is the mechanism the instructors left in for exactly this scenario (or for when a student is stuck debugging a segfault and wants to turn off their broken checker)
+
+Although to pass the score should be evaluated without the `-n` flag. `mm_check` & `mm_can_free` are not something the C standard recommends for allocators.
+
 **Getting Started**
 
-Start by unpacking malloclab-handout.zip. The only file you will be modifying and handing in is "mm.c". The "mdriver.c" program is a driver program that allows you to evaluate the performance of your solution. Use make to generate the driver code and run it as
+Start by unpacking malloclab-handout(2017).zip. The only file you will be modifying and handing in is "mm.c". The "mdriver.c" program is a driver program that allows you to evaluate the performance of your solution. Use make to generate the driver code and run it as
 
 <pre>$ ./mdriver -t &lt;traces folder&gt; </pre>
-or use -f for a single trace file.
+or use -f for a single trace file. -n to check score of naive implementation.
 
 See Trace-based Driver Program section below for information about command-line flags to mdriver.
 
