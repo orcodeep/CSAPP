@@ -15,16 +15,20 @@ These are related but independent. Just rounding block size doesn’t fix payloa
 - Block size is a multiple of 16 → flags OK
 - Payload start is misaligned → crashes on SIMD or long double
 
+There can be cases where the blocks would require no extra padding or slops at all(payload start addr is multiple of 16, blocksize(header + ptrs + pyload size) = multiple of 16). 
+
+But if we store the flags as 1-2 separate bytes, they would no-doubt cause misalignment of payload start addr and so padding would be required. 
+
 ## Trade-offs implicit and explicit lists:
 <pre>
  Feature	                        Implicit Free List	                    Explicit Free List
 ---------                          --------------------                    --------------------
  
- Metadata overhead per block	    16B (header + footer)	                24B (header + prev + next)
+Metadata overhead per block	        16B (header + footer)	                24B (header + prev + next)
  
- Allocation speed	                O(n) scan entire heap	                O(1)-O(n) scan free list only
+Allocation speed	                O(n) scan entire heap	                O(1)-O(n) scan free list only
  
- Freeing & coalescing	            Slow (may need footer)	                Fast (prev/next pointers)
+Freeing & coalescing	            Slow (may need footer)	                Fast (prev/next pointers)
 </pre>
 
 A free block in explicit list:-
@@ -64,10 +68,15 @@ Allocated block in explicit/implicit list:-
 
 # free() doesnt do any checks on the pointer given
 
-The C standard doesnt require free() to do any checks beyond what the programmer guarentees.
-**Because extra checks cost performance.**
+The C standard doesnt require free() to do any checks beyond what the programmer guarentees.<br>
+**Extra checks cost performance** as validation of ptr is pretty hard as many invariants:
 
-If ptr given to free() is not NULL or valid(not yet freed allocation), the behaviour is undefined. 
+- `ptr` could point inside a payload not the block start.
+- `ptr` could be from a different allocator or memory region.
+- `ptr` could be already freed.
+- Reading headers blindly could crash or corrupt memory if `ptr` is completely invalid.
+
+So, if ptr given to free() is not NULL or valid(not yet freed allocation), the behaviour is undefined. 
 
 - It may segfault if it tries to access virtual mem addresses that aren't mapped.
 

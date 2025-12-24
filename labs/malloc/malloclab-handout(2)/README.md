@@ -1,7 +1,7 @@
-_This is the handout given in 2017 for malloclab by utah uni_
+**_This is the handout given in 2017 for malloclab by utah uni_**
 
 `mm_check` and `mm_can_free` are debugging functions and they cause performance loss.<br>
-However, the driver is smarter than that.
+However, the driver is smarter than that.<br>
 Almost all versions of the malloc lab driver (mdriver.c) work in two distinct phases:
 
 - Correctness Phase: It runs specific traces (like amptjp-bal.rep) and aggressively calls mm_check and `mm_can_free` to ensure your logic is sound. It does not time this phase.
