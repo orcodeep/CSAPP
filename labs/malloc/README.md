@@ -62,5 +62,70 @@ Allocated block in explicit/implicit list:-
 └───────────────────────────────┘
 </pre>
 
+# free() doesnt do any checks on the pointer given
+
+The C standard doesnt require free() to do any checks beyond what the programmer guarentees.
+**Because extra checks cost performance.**
+
+If ptr given to free() is not NULL or valid(not yet freed allocation), the behaviour is undefined. 
+
+- It may segfault if it tries to access virtual mem addresses that aren't mapped.
+
+- If it receives a pointer to mapped but invalid memory, the allocator is allowed to do anything, including corrupting itself.
+
+**In case of returning mem to OS (`munmap()`):**
+
+The allocator still would have to do some local checks on the metadata before it returns virtual memory to the OS.
+
+# `sbrk()`/`brk()` vs `mmap()`
+
+**What `sbrk()` does:**
+
+Moves the program break- the end of the process's heap
+
+- Grows or shrinks the heap contiguously
+
+- There is exactly one heap.
+
+**Problems:**
+
+1\. Memory can only grow "upward" as one big chunk.
+
+2\. Hard or impossible to return memory in the middle back to the OS.
+
+3\. Interferes badly with shared libraries and other allocators.
+
+4\. Not thread-friendly.
+
+**What `mmap()` does:**
+
+Allocates a new page in the process's virtual address space anywhere where unmapped areas are available.
+
+- Fragments the heap(many independent regions).
+
+- Any memory chunk mapped by `mmap()` can be returned to the OS(more flexibility and works well with cache system).
+
+**If mmap() and sbrk() are used together:**
+
+A\. The kernel will not let `sbrk()` grow the heap into an existing `mmap()` region. sbrk() simply fails.
+
+You lose address space flexibility. The OS chooses where mmap() regions go.
+
+If you try later:
+<pre>sbrk(large_amount) </pre>
+The kernel might say no virtual space left above the heap even though there is plenty of virtual memory left elsewhere.
+
+So sbrk() fails but mmap() would have succeeded.
+
+B\. Two unrelated memory sources. Your allocator now has:
+
+- Memory that can be returned (`mmap()`)
+
+- Memory that mostly cant be returned (`sbrk()`)
+
+This makes book-keeping harder.
+
+
+
 
 
