@@ -54,11 +54,11 @@ Allocated block in explicit/implicit list:-
 ┌───────────────────────────────┐
 │ size + flags (8B)  (HEADER)   │
 ├───────────────────────────────┤
-│ padding if required           │ ← aligns payload
+│ padding if required           │ ← aligns payload start addr
 ├───────────────────────────────┤
 │       PAYLOAD                 │ ← returned to user
 ├───────────────────────────────┤
-│ padding if required  (slop)   │ ← rounding to 64B total block size
+│  Slop (maybe remains at end)  │ ← aligns block size if payload size requested != multiple of 16
 └───────────────────────────────┘
 </pre>
 
