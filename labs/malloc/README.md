@@ -1,4 +1,3 @@
-
 # Blocksize
 
 The payload needs to be 16-byte aligned. Not just for making the block size 16-byte aligned which could have been done by just tightly packing the header and the payload with using only enough leading or trailing padding to make block size multiple of 16 so that when we store that value in the header we can use the last 4 bits of the block size value to store flags.
@@ -15,7 +14,7 @@ These are related but independent. Just rounding block size doesn’t fix payloa
 - Block size is a multiple of 16 → flags OK
 - Payload start is misaligned → crashes on SIMD or long double
 
-There can be cases where the blocks would require no extra padding or slops at all(payload start addr is multiple of 16, blocksize(header + ptrs + pyload size) = multiple of 16). 
+There can be cases where the free blocks would require no extra padding or slops at all(payload start addr is multiple of 16, blocksize(header + ptrs + pyload size) = multiple of 16). 
 
 But if we store the flags as 1-2 separate bytes, they would no-doubt cause misalignment of payload start addr and so padding would be required. 
 
@@ -43,7 +42,10 @@ HEADER
 └───────────────────────────────┘
 
 UNUSED SPACE 
+
+FOOTER
 </pre>
+We need `FOOTER` in each free block because the footer of a free block is used by the next free block to coalesce. But we do not need it in an allocated block becasue header of each free block contains a flag which tells if the predecessor block is allocated or free.
 
 Allocated block:
 
@@ -84,7 +86,7 @@ So, if ptr given to free() is not NULL or valid(not yet freed allocation), the b
 
 **In case of returning mem to OS (`munmap()`):**
 
-The allocator still would have to do some local checks on the metadata before it returns virtual memory to the OS.
+The allocator needs to do some local checks on the metadata before it returns virtual memory to the OS.
 
 # `sbrk()`/`brk()` vs `mmap()`
 

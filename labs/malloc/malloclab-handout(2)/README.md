@@ -18,8 +18,9 @@ Although to pass the score should be evaluated without the `-n` flag. `mm_check`
 
 Start by unpacking malloclab-handout(2017).zip. The only file you will be modifying and handing in is "mm.c". The "mdriver.c" program is a driver program that allows you to evaluate the performance of your solution. Use make to generate the driver code and run it as
 
-<pre>$ ./mdriver -t &lt;traces folder&gt; </pre>
-or use -f for a single trace file. -n to check score of naive implementation.
+<pre>$ ./mdriver -t &lt;traces_folder&gt; </pre>
+use: -f for a single trace file. <br>
+     -n to check score of naive implementation.
 
 See Trace-based Driver Program section below for information about command-line flags to mdriver.
 
@@ -29,18 +30,12 @@ When you have completed the lab, you will hand in only one file, "mm.c", which c
 
 Your dynamic storage allocator will consist of the following five functions, which are declared in "mm.h" and defined in "mm.c":
 <pre>
+int   mm_init(void);
+void *mm_malloc(size_t size);
+void  mm_free(void *ptr);
 
-  int   mm_init(void);
-
-  void *mm_malloc(size_t size);
-
-  void  mm_free(void *ptr);
-
-  
-
-  int   mm_check(void);
-
-  int   mm_can_free(void *ptr);
+int   mm_check(void);
+int   mm_can_free(void *ptr);
 </pre>
 
 The "mm.c" file that we have given you implements the simplest but still functionally correct malloc implementation that we could think of, except that it does not properly implement mm_can_free. Using this as a starting place, modify these functions (and possibly define other private, static functions), so that they obey the following semantics:
@@ -215,29 +210,21 @@ Some examples of what a heap checker might check are:
 - Do any allocated blocks overlap?
 - Do the pointers in a heap block point to valid heap addresses?
 - Are there any contiguous free blocks that somehow escaped coalescing?
+- Are there cycles in the list?- Use hare turtle algorithm to check
 
 Since a misbehaved client can corrupt memory pages used by the allocator in arbitrary ways, you cannot assume that pointers set up by your allocator will remain valid when mm_check is called. Before dereferencing a pointer, make sure that the dereference will succeed by using mem_is_mapped. Since mem_is_mapped works at the level of pages, you’ll probably find it best to implement a ptr_is_mapped helper function that takes an address and size and makes sure that the address range is on mapped pages:
 
 <pre>
-  /* rounds up to the nearest multiple of mem_pagesize() */
+/* rounds up to the nearest multiple of mem_pagesize() */
+#define PAGE_ALIGN(sz) (((sz) + (mem_pagesize()-1)) & ~(mem_pagesize()-1))
 
-  #define PAGE_ALIGN(sz) (((sz) + (mem_pagesize()-1)) & ~(mem_pagesize()-1))
+/* rounds down to the nearest multiple of mem_pagesize() */
+#define ADDRESS_PAGE_START(p) ((void *)(((size_t)p) & ~(mem_pagesize()-1)))
 
-  
-
-  /* rounds down to the nearest multiple of mem_pagesize() */
-
-  #define ADDRESS_PAGE_START(p) ((void *)(((size_t)p) & ~(mem_pagesize()-1)))
-
-  
-
-  int ptr_is_mapped(void *p, size_t len) {
-
-    void *s = ADDRESS_PAGE_START(p);
-
-    return mem_is_mapped(s, PAGE_ALIGN((p + len) - s));
-
-  }
+int ptr_is_mapped(void *p, size_t len) {
+  void *s = ADDRESS_PAGE_START(p);
+  return mem_is_mapped(s, PAGE_ALIGN((p + len) - s));
+}
 </pre>
 
 A heap checker that scans all allocated pages once in linear time will be fast enough. Beware that a heap checker that is somehow quadratic in the size of allocated pages will be impractically slow. A heap checker that attempts to take a snapshot of the heap state and compare it later is unlikely to work, since the snapshot data will have to be recorded in an allocated page, and a chaotic client can modify the snapshot, too.
