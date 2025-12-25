@@ -8,8 +8,8 @@ You really shouldnt use something like a `uint64_t*` for accessing addresses ins
 
 2\. void* cant be derefed. And pointer arithmetic should not be performed on a void* pointer without casting.
 
-3\. If you casting a ptr to `void**` (ex:- \*(void**)((char\*)bp + 8)) you are telling the compiler:<br><br>
-When I deref this ptr dont look just into the first address(i.e at the first byte), look at the next 8 bytes **and treat them as a single memory address**.
+3\. If you casting a ptr to `void**` (ex:- \*(void**)((char\*)bp + 8)) you are telling the compiler:
+- When I deref this ptr dont look just into the first address(i.e at the first byte), look at the next 8 bytes **and treat them as a single memory address**.
 
 4\. casting to `char*` will be useful for ptr arith as the integer you add to the ptr doesnt get scaled.
 
