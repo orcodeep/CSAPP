@@ -1,7 +1,7 @@
 
-# Whats given
+[Implementation details](#implementation)
 
-_Note:_ [Implementation details](#implementation)
+# Given
 
 ## What PAGE_ALIGN() macro does
 
