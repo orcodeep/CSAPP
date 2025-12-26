@@ -32,7 +32,12 @@ So PAGE_ALIGN(5000) = 8192.
 
 ### Important:
 
-**`mmap()` always returns pointers(ptr to start of allocated pages) which are aligned to 16.**
+**`mmap()` always returns pointers(ptr to start of allocated pages) which are multiples of 16.**
+Since:
+- Strict Page Alignment: `mmap` is required by the OS kernel to return an address that is aligned to the start of a page.
+    - mmap() returns a pointer that is a multiple of the system page size, e.g., 0x1000, 0x2000, 0x3000…
+
+    - Since 4096 is divisible by 16, these addresses are also multiples of 16, so they satisfy 16-byte alignment automatically.
 
 **Hence if our freelist blocks are all multiples of 16, padding inside each block before the payload starts is constant.**
 
