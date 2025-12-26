@@ -11,9 +11,7 @@ Suppose `mem_pagesize()` = 4096 bytes.<br>
 Your requested size is 5000.
 
 Now apply PAGE_ALIGN(size):
-
-PAGE_ALIGN(5000)=(5000+4096−1)&∼(4096−1)<br>
-PAGE_ALIGN(5000)=(5000+4096−1)&∼(4096−1)
+- PAGE_ALIGN(5000)=(5000+4096−1)&∼(4096−1)
 
 Step by step:
 
@@ -60,7 +58,7 @@ It makes the user requested size 16 byte aligned
 | block A (allocated) | block B (free) | block C (allocated) | ... | current_avail region |
 </pre>
 
-You can think of `current_avail` as the first byte of heap memory beyond all existing allocated or free blocks.
+`current_avail` can be though of as the first byte of heap memory beyond all existing allocated or free blocks.
 - It does not traverse the heap; it just grows forward as you allocate more from it.
 - This design separates recycling old memory (freelist) from requesting fresh memory (current_avail).
 
@@ -74,7 +72,7 @@ _Why is `current_avail_size` stored as an int?_<br>
 It’s still used as `int` in many simple allocators:
 
 - These allocators assume malloc requests < 2 GB, which is reasonable for many applications.<br><br>
-The handout specifies that `mm_malloc()` func returns a ptr to an allocated block payload of at least size bytes, where size is less than **`2`<sup>`32`</sup>**.
+The handout specifies that `mm_malloc()` func returns a ptr to an allocated block payload of at least size bytes, where size is less than `2`<sup>**32**</sup>.
 
 - Using `int` saves space in the allocator’s global data.
 
