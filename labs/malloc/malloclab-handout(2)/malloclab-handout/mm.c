@@ -39,8 +39,6 @@ int mm_init(void)
 {
   current_avail = NULL;
   current_avail_size = 0;
-
-  printf("%lu\n", mem_pagesize());
   
   return 0;
 }
