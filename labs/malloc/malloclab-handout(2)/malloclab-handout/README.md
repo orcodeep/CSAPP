@@ -113,7 +113,7 @@ Our segregated freelist implementation:
 
 |  Range   |Stratergy |  Search in list | Indexing | Why?  |
 |:--------:|:--------:|:---------------:|:--------:|:------|
-|64B-1024B |Linear 64B steps|First-Fit  |Direct Indexing<br>i = (ALIGN(size) - 1) / 64|Many fine-grained lists:<br>1\. Very low internal Fragmentation<br>2\. Fast allocation|
+|64B-1024B |Linear 64B steps|First-Fit  |Direct Indexing<br>i = (ALIGN(size) - 64(MIN_BLOCKSIZE)) / 64|Many fine-grained lists:<br>1\. Very low internal Fragmentation<br>2\. Fast allocation|
 |1024B-1MB |Power of 2      |First-Fit  |For loop on table containing size classes OR clz(Math) |10 bins(2<sup>10</sup> to 2<sup>20</sup>) efficiently handles medium buffers|
 |1MB-4MB   |single list|Best-Fit|index = 26|Request for such large blocks is uncommon so due to less population of such blocks we can be thorough|
 |4MB-8MB   |single list|Best-Fit|index = 27|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"|
@@ -124,7 +124,7 @@ Some points:-
 
 1\. Since allocated blocks dont have footer, the footer space can be used for payload.
 
-2\. If the user requests a payload(p) where `p % 16 != 0`, we will pad the end to make the whole block 16 byte aligned. So freelists will contain blocks which are multiples of 16.
+2\. If the user requests a payload(p) where `p % 16 != 0`, we will pad the end to make the whole block 16 byte aligned. **So each freelist will contain blocks which are multiples of 16** but ofc within the size-range that indexes into that freelist.
 
 - Hence if you have a large block and you want to split it into two pieces- both pieces must be 16 byte aligned and of size > min block size (usually `48` bytes on 64bit systems).<br><br>
 Header: 8 bytes<br>
