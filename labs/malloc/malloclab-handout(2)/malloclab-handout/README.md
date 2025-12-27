@@ -142,8 +142,8 @@ Hence, `min block size` = `48` bytes and this supports a `paylaod` of `16` bytes
 
 To minimize fragmentation and avoid wasting memory, the allocator should:
 
-1\) Search the entire sgregated freelist first.
-- Look for a free block that satisfies teh request(including splitting if applicable).
+1\) Search the entire sgregated freelist first. Searching higher lists 1 by 1 if suitable block couldn't be found in the list you indexed into. 
+- Look for a free block that satisfies the request(including splitting if applicable).
 
 2\) Only allocate from `current_avail` region is no suitable free block exists.
 - This grows the heap only when reuse is impossible. 
