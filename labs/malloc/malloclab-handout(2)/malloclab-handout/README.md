@@ -136,7 +136,7 @@ So far: 8 + 8 + 8 + 8 + 8 = 40 bytes<br>
 To satisfy 16-byte alignment for the block size itself, you round up to 48 bytes. which means more 8 byte padding before footer.<br><br>
 Hence, `min block size` = `48` bytes and this supports a `paylaod` of `16` bytes max **but we will have 64 byte min paylaod**.
 
-3\. **Splitting a block may need Re-categorization into a different list.**
+3\. **Splitting a block may need Re-categorization of split free block into a different list.**
 
 ### How we allocate.
 
