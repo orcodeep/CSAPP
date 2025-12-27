@@ -30,7 +30,7 @@
 #define PAGE_ALIGN(size) (((size) + (mem_pagesize()-1)) & ~(mem_pagesize()-1))
 
 void *current_avail = NULL;
-int current_avail_size = 0;
+int current_avail_size = 0; 
 
 /* 
  * mm_init - initialize the malloc package.
@@ -64,7 +64,6 @@ void *mm_malloc(size_t size)
   p = current_avail;
   current_avail += newsize;
   current_avail_size -= newsize;
-  
   return p;
 }
 

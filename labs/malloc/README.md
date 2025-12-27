@@ -133,7 +133,7 @@ Allocates a new page in the process's virtual address space anywhere where unmap
 
 **If mmap() and sbrk() are used together:**
 
-A\. The kernel will not let `sbrk()` grow the heap into an existing `mmap()` region. sbrk() simply fails.
+A\) The kernel will not let `sbrk()` grow the heap into an existing `mmap()` region. sbrk() simply fails.
 
 You lose address space flexibility. The OS chooses where mmap() regions go.
 
@@ -143,7 +143,7 @@ The kernel might say no virtual space left above the heap even though there is p
 
 So sbrk() fails but mmap() would have succeeded.
 
-B\. Two unrelated memory sources. Your allocator now has:
+B\) Two unrelated memory sources. Your allocator now has:
 
 - Memory that can be returned (`mmap()`)
 

@@ -1,4 +1,5 @@
-**_This is the handout given in 2017 for malloclab by utah uni_**
+# _This is the handout given in 2017 for malloclab by utah uni_
+[Link](https://my.eng.utah.edu/~cs4400/f17/malloc.html)
 
 `mm_check` and `mm_can_free` are debugging functions and they cause performance loss.<br>
 However, the driver is smarter than that.<br>
@@ -14,7 +15,7 @@ This is the mechanism the instructors left in for exactly this scenario (or for 
 
 Although to pass the score should be evaluated without the `-n` flag. `mm_check` & `mm_can_free` are not something the C standard recommends for allocators.
 
-**Getting Started**
+## Getting Started
 
 Start by unpacking malloclab-handout(2017).zip. The only file you will be modifying and handing in is "mm.c". The "mdriver.c" program is a driver program that allows you to evaluate the performance of your solution. Use make to generate the driver code and run it as
 
@@ -22,11 +23,11 @@ Start by unpacking malloclab-handout(2017).zip. The only file you will be modify
 use: -f for a single trace file. <br>
      -n to check score of naive implementation.
 
-See Trace-based Driver Program section below for information about command-line flags to mdriver.
+See [Trace-based Driver Program section below for information about command-line flags to mdriver](#trace-based-driver-program).
 
 When you have completed the lab, you will hand in only one file, "mm.c", which contains your solution.
 
-**How to Work on the Lab**
+## How to Work on the Lab
 
 Your dynamic storage allocator will consist of the following five functions, which are declared in "mm.h" and defined in "mm.c":
 <pre>
@@ -44,7 +45,7 @@ The "mm.c" file that we have given you implements the simplest but still functio
 
 The mm_init function will be called once per benchmark run, so it can be called multiple times in the same run of mdriver. Your mm_init function should reset your implementation to its initial state in each case.
 
-2\. mm_malloc: The mm_malloc function returns a pointer to an allocated block payload of at least size bytes, where size is less than 232. The entire allocated block should lie within the heap region and should not overlap with any other allocated block.
+2\. mm_malloc: The mm_malloc function returns a pointer to an allocated block payload of at least size bytes, where size is less than 2<sup>32</sup>. The entire allocated block should lie within the heap region and should not overlap with any other allocated block.
 
 -   We’ll compare your implementation to the version of malloc supplied in the standard C library (libc). Since the libc malloc always returns payload pointers that are aligned to 16 bytes, your malloc implementation should do likewise and always return 16-byte aligned pointers.
 
@@ -64,7 +65,7 @@ If the client program is misbehaved and corrupts the heap, then mm_can_free is a
 
 Beyond correctness, your goal is to produce an allocator that performs well in time and space. That is, the mm_malloc and mm_free functions should work as quickly as possible, and the total amount of memory used by your allocator should stay as close as possible to the amount of memory needed to hold the payload of mm_malloc calls not yet balanced by mm_free calls.
 
-**Support Functions**
+## Support Functions
 
 The "memlib.c" module provides a wrapper on the operating system’s virtual-memory system. Your allocator will need to use these functions to obtain pages of memory that it can allocate from. When mdriver runs your allocator, it resets the memory system (i.e., frees all pages) before calling mm_init to start a new benchmark run.
 
@@ -106,7 +107,7 @@ The mem_is_mapped function is useful for implementing mm_check and mm_can_free, 
 
 You can assume that your allocator is the only part of a program that calls mem_map and mem_unmap, except that all pages are reset before mm_init is called.
 
-**Trace-based Driver Program**
+## Trace-based Driver Program
 
 The driver program "mdriver.c" tests your "mm.c" implementation for correctness, defensiveness, space utilization, and throughput:
 
@@ -153,7 +154,7 @@ You may find it useful to see the shape of memory use created by a trace file. R
 <pre>$ racket plot.rkt ‹tracefile›</pre>
 
 to see a plot of allocated memory over time for ‹tracefile›.<br>
-**Programming Rules**
+## Programming Rules
 
 - Your "mm.c" must be implemented in ANSI standard C, as always.
 
@@ -165,7 +166,7 @@ to see a plot of allocated memory over time for ‹tracefile›.<br>
 
 - For consistency with the libc malloc implementation, which returns blocks aligned on 16-byte boundaries, your allocator must always return pointers that are aligned to 16-byte boundaries. The driver will enforce this requirement for you.
 
-**Evaluation**
+## Evaluation
 
 Your grade will be calculated as follows:
 
@@ -197,7 +198,7 @@ The ideal performance index of 100 is unreachable, since every allocator will ha
 
 As a secondary constraint, your allocator must be able to perform the following sequence within 5 minutes: pass the correctness tests for all traces plus the defensiveness test on "traces/amptjp-bal.rep".
 
-**Heap-Check Tips**
+## Heap-Check Tips
 
 Dynamic memory allocators are notoriously tricky beasts to program correctly and efficiently. They are difficult to program correctly, because they involve a lot of untyped pointer manipulation. Even if the assignment did not require mm_check and mm_can_free, you would find it very helpful to write a heap checker that scans the heap and checks it for consistency.
 
@@ -231,7 +232,7 @@ A heap checker that scans all allocated pages once in linear time will be fast e
 
 Random chaos to check your implementation’s defensiveness will modify only mapped pages, and not your allocator’s global variables—but that doesn’t help much, since the programming rules constrain your allocator’s use of global variables.
 
-**More Tips**
+## More Tips
 
 - Start early! It is possible to write an efficient malloc package with a few pages of code. However, an allocator could easily be the most difficult and sophisticated code you have written so far.
 
