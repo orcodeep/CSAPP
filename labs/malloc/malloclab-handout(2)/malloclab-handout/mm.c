@@ -62,7 +62,6 @@ void *mm_malloc(size_t size)
   p = current_avail;
   current_avail += newsize;
   current_avail_size -= newsize;
-  
   return p;
 }
 

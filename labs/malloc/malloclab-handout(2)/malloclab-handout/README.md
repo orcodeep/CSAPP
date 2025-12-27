@@ -78,6 +78,35 @@ The handout specifies that `mm_malloc()` func returns a ptr to an allocated bloc
 
 # Implementation
 
+## Heap start and end
+
+**Prologue allocation**
+
+When you initialize the heap in `mm_init()`, you create a prologue block:
+
+- Header: size = minimal block size (e.g., 16 bytes), allocated = 1
+- Optional footer: doesn’t matter, can be 0
+
+You then increment current_avail past the prologue block so that allocations start after the prologue.<br>
+And you also set the `if prev allocated` flag in the block that current_avail ptr points to.
+- So that when a new block is allocated it already knows if its predecessor block is allocated or free.
+- This ensures that when the first free block appears, it will never try to coalesce backward into the prologue.
+
+You also mark the current addr of current_avail as `heapStart` global.
+- `heapEnd` is always just the current_avail ptr.
+- `mm_check()` will traverse the blocks between `heapStart` and `current_avail`.
+
+**Nothing “special” in the prologue itself**
+
+The prologue is just a normal allocated block; it doesn’t store a pointer or magic value.
+
+It’s not meant to be freed, but you don’t need to protect it:
+- You assume the allocator code never frees the prologue.
+- The programmer can’t access it anyway, because allocations start after it.
+
+
+## freelist
+
 We will have powers of 2 divisions of lists. 
 
 The index into the freelist array = 31 - __builtin_clz(size)
