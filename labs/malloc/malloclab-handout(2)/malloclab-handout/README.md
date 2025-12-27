@@ -117,7 +117,25 @@ Points:-
 
 2\. If the user requests a payload(p) where `p % 16 != 0`, we will pad the end to make the whole block 16 byte aligned. So freelists will contain blocks which are multiples of 16.
 
-- Hence if you have a large block and you want to split it into two pieces- both pieces must be 16 byte aligned and of size > min block size (usually `32` bytes).
+- Hence if you have a large block and you want to split it into two pieces- both pieces must be 16 byte aligned and of size > min block size (usually `48` bytes on 64bit systems).<br><br>
+Header: 8 bytes (stores size + allocated + prev_alloc bit)<br>
+Prev pointer: 8 bytes<br>
+Next pointer: 8 bytes<br>
+Padding: 8 bytes (to make payload start 16-byte aligned)<br>
+Footer: 8 bytes<br><br>
+So far: 8 + 8 + 8 + 8 + 8 = 40 bytes<br>
+To satisfy 16-byte alignment for the block size itself, you round up to 48 bytes. which means more 8 byte padding before footer.<br><br>
+Hence, `min block size` = `48` bytes and this supports a `paylaod` of `16` bytes max.
+
+### How we allocate.
+
+To minimize fragmentation and avoid wasting memory, the allocator should:
+
+1\) Search the entire sgregated freelist first.
+- Look for a free block that satisfies teh request(including splitting if applicable).
+
+2\) Only allocate from `current_avail` region is no suitable free block exists.
+- This grows the heap only when reuse is impossible. 
 
 
 
