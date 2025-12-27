@@ -78,6 +78,8 @@ The handout specifies that `mm_malloc()` func returns a ptr to an allocated bloc
 
 # Implementation
 
+[seg freelist implementation](#freelist)
+
 ## Heap start and end
 
 **Prologue allocation**
@@ -107,25 +109,34 @@ It’s not meant to be freed, but you don’t need to protect it:
 
 ## freelist
 
-We will have powers of 2 divisions of lists. 
+Our segregated freelist implementation:
 
-The index into the freelist array = 31 - __builtin_clz(size)
+|  Range   |Stratergy |  Search in list | Indexing | Why?  |
+|:--------:|:--------:|:---------------:|:--------:|:------|
+|64B-1024B |Linear 64B steps|First-Fit  |For loop  |Many fine-grained lists:<br>1\. Very low internal Fragmentation<br>2\. Fast allocation|
+|1024B-1MB |Power of 2      |First-Fit  |clz(Math) |10 bins(2<sup>10</sup> to 2<sup>20</sup>) efficiently handles medium buffers|
+|1MB-4MB   |single list|Best-Fit|index = 26|Request for such large blocks is uncommon so due to less population of such blocks we can be thorough|
+|4MB-8MB   |single list|Best-Fit|index = 27|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"|
+|>8MB      |Direct OS call|Nil|Nil|No need to cache such big blocks. When user is done with the block we return it to the OS|
 
-Points:- 
+
+Some points:- 
 
 1\. Since allocated blocks dont have footer, the footer space can be used for payload.
 
 2\. If the user requests a payload(p) where `p % 16 != 0`, we will pad the end to make the whole block 16 byte aligned. So freelists will contain blocks which are multiples of 16.
 
 - Hence if you have a large block and you want to split it into two pieces- both pieces must be 16 byte aligned and of size > min block size (usually `48` bytes on 64bit systems).<br><br>
-Header: 8 bytes (stores size + allocated + prev_alloc bit)<br>
+Header: 8 bytes<br>
 Prev pointer: 8 bytes<br>
 Next pointer: 8 bytes<br>
 Padding: 8 bytes (to make payload start 16-byte aligned)<br>
 Footer: 8 bytes<br><br>
 So far: 8 + 8 + 8 + 8 + 8 = 40 bytes<br>
 To satisfy 16-byte alignment for the block size itself, you round up to 48 bytes. which means more 8 byte padding before footer.<br><br>
-Hence, `min block size` = `48` bytes and this supports a `paylaod` of `16` bytes max.
+Hence, `min block size` = `48` bytes and this supports a `paylaod` of `16` bytes max **but we will have 64 byte min paylaod**.
+
+3\. **Splitting a block may need Re-categorization into a different list.**
 
 ### How we allocate.
 
