@@ -113,7 +113,7 @@ Our segregated freelist implementation:
 
 |  Range   |Stratergy |  Search in list | Indexing | Why?  |
 |:--------:|:--------:|:---------------:|:--------:|:------|
-|64B-1024B |Linear 64B steps|First-Fit  |For loop  |Many fine-grained lists:<br>1\. Very low internal Fragmentation<br>2\. Fast allocation|
+|64B-1024B |Linear 64B steps|First-Fit  |Direct Indexing<br>i = (ALIGN(size) - 1) / 64|Many fine-grained lists:<br>1\. Very low internal Fragmentation<br>2\. Fast allocation|
 |1024B-1MB |Power of 2      |First-Fit  |For loop on table containing size classes OR clz(Math) |10 bins(2<sup>10</sup> to 2<sup>20</sup>) efficiently handles medium buffers|
 |1MB-4MB   |single list|Best-Fit|index = 26|Request for such large blocks is uncommon so due to less population of such blocks we can be thorough|
 |4MB-8MB   |single list|Best-Fit|index = 27|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"|
