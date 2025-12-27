@@ -32,6 +32,8 @@
 void *current_avail = NULL;
 int current_avail_size = 0; 
 
+
+
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -39,7 +41,17 @@ int mm_init(void)
 {
   current_avail = NULL;
   current_avail_size = 0;
+
+  /*- Initialize the heap by calling mmap()
+    - Allocate prologue block
+    - Increment the current_avail ptr, decrement current_avail_size
+    - Store the current_avail ptr as heapStart
+    - Initialize segregated free lists (set all heads to NULL)
+    - Reset any counters / state used by mm_check()
+    */
+
   
+
   return 0;
 }
 

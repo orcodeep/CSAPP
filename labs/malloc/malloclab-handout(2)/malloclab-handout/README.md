@@ -78,7 +78,7 @@ The handout specifies that `mm_malloc()` func returns a ptr to an allocated bloc
 
 # Implementation
 
-[seg freelist implementation](#freelist)
+[Seg freelist implementation](#freelist)
 
 ## Heap start and end
 
@@ -86,7 +86,7 @@ The handout specifies that `mm_malloc()` func returns a ptr to an allocated bloc
 
 When you initialize the heap in `mm_init()`, you create a prologue block:
 
-- Header: size = minimal block size (e.g., 16 bytes), allocated = 1
+- Header: size = min 16 byte aligned block, allocated = 1
 - Optional footer: doesn’t matter, can be 0
 
 You then increment current_avail past the prologue block so that allocations start after the prologue.<br>
@@ -107,7 +107,7 @@ It’s not meant to be freed, but you don’t need to protect it:
 - The programmer can’t access it anyway, because allocations start after it.
 
 
-## freelist
+## Freelist
 
 Our segregated freelist implementation:
 
