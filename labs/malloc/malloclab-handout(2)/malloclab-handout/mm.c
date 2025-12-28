@@ -42,8 +42,9 @@ typedef struct island_t {
   int block1_offset;
 } island_t;
 
+island_t* first_islandHeader = NULL; /* always poinst to start of whole heap */
+island_t* active_islandHeader = NULL; /* always points to the last island that was mmapped*/
 void* freeArrPtr = NULL;
-void* current_island_blockStart = NULL;
 
 /* 
  * mm_init - initialize the malloc package.
@@ -66,6 +67,7 @@ int mm_init(void)
   }
   /* store the island metadata */
   island_t* island_header = (island_t*)current_avail;
+  first_islandHeader = island_header;
   island_header->next_island = NULL;
   island_header->size = current_avail_size;
 
@@ -81,14 +83,14 @@ int mm_init(void)
 
   /* Store first block offset in island header and store it in a global */
   island_header->block1_offset = hsize + list_bytes;
-  current_island_blockStart = current_avail;
+  active_islandHeader = island_header; /* will be useful to link the islands */
 
   /*read the next 8 bytes as ptr then deref that and set size, flags*/
   /*hence make epilogue block and also store info abt predecessor block*/
   *(size_t*)current_avail = 3; /* set the prevalloc and alloc flags and set size = 0 */
 
   /*Initialise the seg freelist to all NULLs*/
-  void* bp = freeArrPtr;                // OR:- 
+  void* bp = freeArrPtr;                // OR More Cleanly:- 
   for (int i = 0; i < listqty; i++) {   // void **seg_list = (void**)freeArrPtr; 
     *(void**)bp = NULL;                 // for (int i = 0; i < listqty; i++) {
     bp = (void*)((char*)bp + 8);        //    seg_list[i] = NULL; }
