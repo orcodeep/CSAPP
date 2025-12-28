@@ -119,6 +119,8 @@ And you also set the `prev alloc` flag in the block that current_avail ptr point
 - This ensures that when the first free block appears, it will never try to coalesce backward into the prologue.
 
 **Hence because of this we do not need a `prologue` block**
+- Make sure you are not overwriting the 3 blindly in `mm_malloc()`, you lose the information it contained.
+- Either store `|` the `blocksize` with whats already stored if allocating from current_avail or use proper masking to not overwrite the `prevalloc` flag.
 
 **In mm_init() i.e when we are initializing the heap we set the `prevalloc` flag (of the block `current_avail` is pointing to) to 1. But free() will take care of the prev alloc flag of the `current_avail` if last allocted block from `current_avail` gets freed by user. As when we free a block, the next block's `prevalloc` flag is switched.**
 

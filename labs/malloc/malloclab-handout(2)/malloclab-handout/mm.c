@@ -34,14 +34,16 @@ int current_avail_size = 0;
 
 /* My globals */
 
+#define listqty 27
+
 typedef struct island_t {
   void* next_island;
   int size;
-  int padding;
+  int block1_offset;
 } island_t;
 
 void* freeArrPtr = NULL;
-
+void* current_island_blockStart = NULL;
 
 /* 
  * mm_init - initialize the malloc package.
@@ -66,16 +68,20 @@ int mm_init(void)
   island_t* island_header = (island_t*)current_avail;
   island_header->next_island = NULL;
   island_header->size = current_avail_size;
-  island_header->padding = 0;
-  current_avail = (void*)((char*)current_avail + sizeof(island_header));
-  current_avail_size -= sizeof(island_header);
 
-  /* store start of freelist array */
+  int hsize = sizeof(island_t);
+  current_avail = (void*)((char*)current_avail + hsize);
+  current_avail_size -= hsize;
+
+  /* store start of freelist array and move current_avail forward */
   freeArrPtr = current_avail;
+  int list_bytes = listqty * sizeof(void*);
+  current_avail = (void*)((char*)current_avail + list_bytes);
+  current_avail_size -= list_bytes;
 
-  int listqty = 27;
-  current_avail = (void*)((char*)current_avail + listqty*8);
-  current_avail_size -= listqty*8;
+  /* Store first block offset in island header and store it in a global */
+  island_header->block1_offset = hsize + list_bytes;
+  current_island_blockStart = current_avail;
 
   /*read the next 8 bytes as ptr then deref that and set size, flags*/
   /*hence make epilogue block and also store info abt predecessor block*/
