@@ -82,32 +82,43 @@ The handout specifies that `mm_malloc()` func returns a ptr to an allocated bloc
 
 The Start (Left Wall): Can be optimized away. It is static (never moves). We can replace the physical Prologue block with just the PREV_ALLOC bit on the first real block.
 
-The End (Right Wall): Cannot be optimized away. It is dynamic (moves). We must have a physical Epilogue block (header) at the very end of the heap at all times.
+The End (Right Wall): Cannot be optimized away. It is dynamic (moves). We must have a physical Epilogue block (header) at the very end of each page of the heap at all times.
+
+### How do we tie the islands returned by `mem_map()` into a single heap?
+
+This is required for `mm_check()` becausse it must travel the whole heap to check it condition.
+- We Make a linked list of islands.
+- Define two global head ptrs (to start of whole heap & to start of current island)
+
+Define a segment struct at the start of each island.<br>
+It contains:
+- The ptr to the start of the next next island.
+- Size i.e Total number of bytes in this island (not just first block to epilogue).  
+
+[Wht to do with the virgin space in current island if new request is too full for an island but the island still has lots of virgin space?](#what-to-do-with-the-virgin-space-in-current-island-before-calling-mem_map)
 
 ### Prologue allocation
 
-You want the static area (Array) to end on an 8-byte offset (like 216) so that the next 8-byte header pushes the payload onto a 16-byte alignment.
+**For the first mmapped island(i.e initial heap) you need to store the array of freelists after the segment struct.**
 
-Add one more 8-byte word (like a Prologue Footer) to fix it.
+You want the static area (segment struct + Array) to end on an 8-byte offset (like say 232) so that the next 8-byte header pushes the payload onto a 16-byte alignment.
+
+You can add some padding to make it such that this is true.
 
 **This way you dont need 8 byte padding inside each block to make the paylaod start 16byte aligned.**
-- Does 216 divide by 16? 232/16=13.5 No.
+- Does 216 divide by 16? 232/16=14.5 No.
 - It has a remainder of 8.
 - This means your First Real Header will sit at an address ending in ...8.
 - Consequently, your First Real Payload will sit at ...8 + 8 = ...0 (16-byte aligned).
 
-The alignment is perfect.
+The alignment is perfect.<br>
+You then increment `current_avail` past this so that allocations start after the prologue.
 
-You then increment current_avail past the prologue block so that allocations start after the prologue.<br>
 And you also set the `prev alloc` flag in the block that current_avail ptr points to.
 - So that when a new block is allocated it already knows if its predecessor block is allocated or free.
 - This ensures that when the first free block appears, it will never try to coalesce backward into the prologue.
 
-#### Hence because of this we do not need a `prologue` block
-
-- If the heap ends with an Allocated Block: The Epilogue is PACK(0, 1 | 2) (Alloc:1, Prev_Alloc:1).
-
-- If the heap ends with a Free Block: The Epilogue is PACK(0, 1) (Alloc:1, Prev_Alloc:0).
+**Hence because of this we do not need a `prologue` block**
 
 **In mm_init() i.e when we are initializing the heap we set the `prevalloc` flag (of the block `current_avail` is pointing to) to 1. But free() will take care of the prev alloc flag of the `current_avail` if last allocted block from `current_avail` gets freed by user. As when we free a block, the next block's `prevalloc` flag is switched.**
 
@@ -126,12 +137,20 @@ You perform these steps on the NEW page:
 1\. Left Wall (Safety): The very first block in the new page MUST have its PREV_ALLOC bit set to 1.
 - Why? Because there is no valid memory before it. If a standard coalescing check looked backward, it would crash.
 
-2\. Right Wall (Epilogue): You MUST place a physical Epilogue header (Size:0, Alloc:1, PrevAlloc:?) at the very end of the new page.
-- Why? To stop forward coalescing from falling off the edge of this specific page.
+2\. Right Wall (Epilogue): You MUST place a physical Epilogue header (Size:0, Alloc:1, PrevAlloc:?) at the very end of the new page. Just like we did with the `current_avail` in the previous page.
 
-3\. The "Meat" (Free Block): Everything between the Left Wall and Right Wall becomes one giant Free Block.
-- You create a Header and Footer for this block.
-- You call insert_free_block(bp) to put it into your SegList.
+#### What to do with the virgin space in current island before calling mem_map()
+
+**Make it free**
+
+Check if `current_avail_Size` is larger than min block size + epilogue.
+
+If yes then:
+- Create a header & footer & prev, next ptrs to make it a legitimate free block.
+- Insert(LIFO) this free block in the suitable freelist.
+- Remember to place epilogue at the end. 
+
+
 
 ## Freelist
 

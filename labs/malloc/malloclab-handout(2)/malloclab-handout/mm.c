@@ -40,8 +40,10 @@ void* freeArrPtr = NULL;
 int mm_init(void)
 {
   /*- Initialize the heap by calling mmap()
+    - Store the Island list metadata
     - Allocate array of free lists at begininng of heap
-    - move current_avail ptr forward, set (its prevalloc flag, size, alloc flag), decrement current_avail_size
+    - move current_avail ptr forward(add preceeding padding if required), 
+      set (its prevalloc flag, size, alloc flag), decrement current_avail_size
     - Initialize segregated free lists (set all heads to NULL)
     */
   current_avail_size = mem_pagesize();
