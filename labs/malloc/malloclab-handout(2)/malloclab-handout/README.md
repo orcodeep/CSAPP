@@ -37,8 +37,6 @@ Since:
 
     - Since 4096 is divisible by 16, these addresses are also multiples of 16, so they satisfy 16-byte alignment automatically.
 
-**Hence if our freelist blocks are all multiples of 16, padding inside each block before the payload starts is constant.**
-
 Why this is good:
 - **IMP-** **padding not being variable means when you `free()` header lookup is O(1).**
 - Payload alignment then costs zero padding(or doesnt require any kind of arithmetic).
@@ -58,7 +56,7 @@ It makes the user requested size 16 byte aligned
 | block A (allocated) | block B (free) | block C (allocated) | ... | current_avail region |
 </pre>
 
-`current_avail` can be though of as the first byte of heap memory beyond all existing allocated or free blocks.
+`current_avail` can be thought of as the first byte of heap memory beyond all existing allocated or free blocks.
 - It does not traverse the heap; it just grows forward as you allocate more from it.
 - This design separates recycling old memory (freelist) from requesting fresh memory (current_avail).
 
@@ -82,30 +80,58 @@ The handout specifies that `mm_malloc()` func returns a ptr to an allocated bloc
 
 ## Heap start and end
 
-**Prologue allocation**
+The Start (Left Wall): Can be optimized away. It is static (never moves). We can replace the physical Prologue block with just the PREV_ALLOC bit on the first real block.
 
-When you initialize the heap in `mm_init()`, you create a prologue block:
+The End (Right Wall): Cannot be optimized away. It is dynamic (moves). We must have a physical Epilogue block (header) at the very end of the heap at all times.
 
-- Header: size = min 16 byte aligned block, allocated = 1
-- Optional footer: doesn’t matter, can be 0
+### Prologue allocation
+
+You want the static area (Array) to end on an 8-byte offset (like 216) so that the next 8-byte header pushes the payload onto a 16-byte alignment.
+
+Add one more 8-byte word (like a Prologue Footer) to fix it.
+
+**This way you dont need 8 byte padding inside each block to make the paylaod start 16byte aligned.**
+- Does 216 divide by 16? 232/16=13.5 No.
+- It has a remainder of 8.
+- This means your First Real Header will sit at an address ending in ...8.
+- Consequently, your First Real Payload will sit at ...8 + 8 = ...0 (16-byte aligned).
+
+The alignment is perfect.
 
 You then increment current_avail past the prologue block so that allocations start after the prologue.<br>
-And you also set the `if prev allocated` flag in the block that current_avail ptr points to.
+And you also set the `prev alloc` flag in the block that current_avail ptr points to.
 - So that when a new block is allocated it already knows if its predecessor block is allocated or free.
 - This ensures that when the first free block appears, it will never try to coalesce backward into the prologue.
 
-You also mark the current addr of current_avail as `heapStart` global.
-- `heapEnd` is always just the current_avail ptr.
-- `mm_check()` will traverse the blocks between `heapStart` and `current_avail`.
+#### Hence because of this we do not need a `prologue` block
 
-**Nothing “special” in the prologue itself**
+- If the heap ends with an Allocated Block: The Epilogue is PACK(0, 1 | 2) (Alloc:1, Prev_Alloc:1).
 
-The prologue is just a normal allocated block; it doesn’t store a pointer or magic value.
+- If the heap ends with a Free Block: The Epilogue is PACK(0, 1) (Alloc:1, Prev_Alloc:0).
 
-It’s not meant to be freed, but you don’t need to protect it:
-- You assume the allocator code never frees the prologue.
-- The programmer can’t access it anyway, because allocations start after it.
+**In mm_init() i.e when we are initializing the heap we set the `prevalloc` flag (of the block `current_avail` is pointing to) to 1. But free() will take care of the prev alloc flag of the `current_avail` if last allocted block from `current_avail` gets freed by user. As when we free a block, the next block's `prevalloc` flag is switched.**
 
+### Epilogue allocation
+
+The address pointed to by `current_avail` **sMUST alway contain the Epilogue Header. i.e the size = 0 and `alloc` flag = 1.** (when new block allocated from `current_avail` the newly allocated block will move `current_avail` forward and also set the `prevalloc` flag of the block it points at to 1 again)
+
+This ensures that any block sitting immediately before the wilderness sees a "wall" (Allocated Block) when it looks forward.
+
+### subsequent calls to mem_map()
+
+When you map a new page when inital heap runs out, you simply need to make it "safe" for your allocator algorithms (like coalescing) to operate inside it without crashing.
+
+You perform these steps on the NEW page:
+
+1\. Left Wall (Safety): The very first block in the new page MUST have its PREV_ALLOC bit set to 1.
+- Why? Because there is no valid memory before it. If a standard coalescing check looked backward, it would crash.
+
+2\. Right Wall (Epilogue): You MUST place a physical Epilogue header (Size:0, Alloc:1, PrevAlloc:?) at the very end of the new page.
+- Why? To stop forward coalescing from falling off the edge of this specific page.
+
+3\. The "Meat" (Free Block): Everything between the Left Wall and Right Wall becomes one giant Free Block.
+- You create a Header and Footer for this block.
+- You call insert_free_block(bp) to put it into your SegList.
 
 ## Freelist
 

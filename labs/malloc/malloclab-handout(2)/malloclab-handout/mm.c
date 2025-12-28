@@ -32,25 +32,41 @@
 void *current_avail = NULL;
 int current_avail_size = 0; 
 
-
+void* freeArrPtr = NULL;
 
 /* 
  * mm_init - initialize the malloc package.
  */
 int mm_init(void)
 {
-  current_avail = NULL;
-  current_avail_size = 0;
-
   /*- Initialize the heap by calling mmap()
-    - Allocate prologue block
-    - Increment the current_avail ptr, decrement current_avail_size
-    - Store the current_avail ptr as heapStart
+    - Allocate array of free lists at begininng of heap
+    - move current_avail ptr forward, set (its prevalloc flag, size, alloc flag), decrement current_avail_size
     - Initialize segregated free lists (set all heads to NULL)
-    - Reset any counters / state used by mm_check()
     */
+  current_avail_size = mem_pagesize();
+  current_avail = mem_map(current_avail_size);
+  if(current_avail == NULL) {
+    current_avail_size = 0;
+    fprintf(stderr, "Couldn't initialize heap\n");
+    return 1;
+  }
+  /* store start of freelist array */
+  freeArrPtr = current_avail;
 
-  
+  int listqty = 27;
+  current_avail = (void*)((char*)current_avail + listqty*8);
+  current_avail_size -= listqty*8;
+
+  /*read the next 8 bytes as ptr then deref that and set size, flags*/
+  *(size_t*)current_avail = 3; /* set the prevalloc and alloc flags and set size = 0 */
+
+  /*Initialise the seg freelist to all NULLs*/
+  void* bp = freeArrPtr;                // OR:- 
+  for (int i = 0; i < listqty; i++) {   // void **seg_list = (void**)freeArrPtr; 
+    *(void**)bp = NULL;                 // for (int i = 0; i < listqty; i++) {
+    bp = (void*)((char*)bp + 8);        //    seg_list[i] = NULL; }
+  }                                     
 
   return 0;
 }
