@@ -32,7 +32,16 @@
 void *current_avail = NULL;
 int current_avail_size = 0; 
 
+/* My globals */
+
+typedef struct island_t {
+  void* next_island;
+  int size;
+  int padding;
+} island_t;
+
 void* freeArrPtr = NULL;
+
 
 /* 
  * mm_init - initialize the malloc package.
@@ -53,6 +62,14 @@ int mm_init(void)
     fprintf(stderr, "Couldn't initialize heap\n");
     return 1;
   }
+  /* store the island metadata */
+  island_t* island_header = (island_t*)current_avail;
+  island_header->next_island = NULL;
+  island_header->size = current_avail_size;
+  island_header->padding = 0;
+  current_avail = (void*)((char*)current_avail + sizeof(island_header));
+  current_avail_size -= sizeof(island_header);
+
   /* store start of freelist array */
   freeArrPtr = current_avail;
 
@@ -61,6 +78,7 @@ int mm_init(void)
   current_avail_size -= listqty*8;
 
   /*read the next 8 bytes as ptr then deref that and set size, flags*/
+  /*hence make epilogue block and also store info abt predecessor block*/
   *(size_t*)current_avail = 3; /* set the prevalloc and alloc flags and set size = 0 */
 
   /*Initialise the seg freelist to all NULLs*/
