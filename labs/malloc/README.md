@@ -10,6 +10,7 @@ You really shouldnt use something like a `uint64_t*` for accessing addresses ins
 
 3\. If you casting a ptr to `void**` (ex:- \*(void**)((char\*)bp + 8)) you are telling the compiler:
 - When I deref this ptr dont look just into the first address(i.e at the first byte), look at the next 8 bytes **and treat them as a single memory address**.
+- i.e (void**)bp: You cast the bp pointer to "a pointer to a void\*". This tells the compiler, "**Treat the memory at bp as a container for a pointer**."
 
 4\. casting to `char*` will be useful for ptr arith as the integer you add to the ptr doesnt get scaled.
 
