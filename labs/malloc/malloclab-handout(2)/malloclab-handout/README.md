@@ -44,11 +44,11 @@ Why this is good:
 
 ## What ALIGN() macro does
 
-It makes the user requested size 16 byte aligned
+It makes a size 16 byte aligned
 
-- Since we do not need to work for aligning the payload start addr. Our only worry is aligning the paylaod size.
+- Since we do not need to work for aligning the payload start addr. Our only worry is aligning the block size
 
-- \**We should align the `size` user requests before we start to find a suitable block for it in freelist.
+- \**We should align the `blocksize` before we start to find a suitable block for it in freelist.
 
 ## current_avail & current_avail_size
 
@@ -101,12 +101,12 @@ It contains:
 
 **For the first mmapped island(i.e initial heap) you need to store the array of freelists after the segment struct.**
 
-You want the static area (segment struct + Array) to end on an 8-byte offset (like say 232) so that the next 8-byte header pushes the payload onto a 16-byte alignment.
+You want the static area (segment struct + Array) to end on an 8-byte offset (like say 136) so that the next 8-byte header pushes the payload onto a 16-byte alignment.
 
 You can add some padding to make it such that this is true.
 
 **This way you dont need 8 byte padding inside each block to make the paylaod start 16byte aligned.**
-- Does 216 divide by 16? 232/16=14.5 No.
+- Does 136 divide by 16? 136/16=8.5 No.
 - It has a remainder of 8.
 - This means your First Real Header will sit at an address ending in ...8.
 - Consequently, your First Real Payload will sit at ...8 + 8 = ...0 (16-byte aligned).
@@ -152,7 +152,9 @@ If yes then:
 - Insert(LIFO) this free block in the suitable freelist.
 - Remember to place epilogue at the end. 
 
+### Header(blocksize) needs to be 8 bytes
 
+Even though payload can be stored in an int, `prev` `next` `footer` overhead is there.
 
 ## Freelist
 
@@ -160,32 +162,31 @@ Our segregated freelist implementation:
 
 |  Range   |Stratergy |  Search in list | Indexing | Why?  |
 |:--------:|:--------:|:---------------:|:--------:|:------|
-|64B-1024B |Linear 64B steps|First-Fit  |Direct Indexing<br>i = (ALIGN(size) - 64(MIN_BLOCKSIZE)) / 64|Many fine-grained lists:<br>1\. Very low internal Fragmentation<br>2\. Fast allocation|
-|1024B-1MB |Power of 2      |First-Fit  |For loop on table containing size classes OR clz(Math) |10 bins(2<sup>10</sup> to 2<sup>20</sup>) efficiently handles medium buffers|
+|64B-1024B |Min bin   |First-Fit  |freelist[0]|Fast allocation|
+|>32B - 1MB |Power of 2|First-Fit  |For loop OR clz(Math) |15 bins(2<sup>6</sup> to 2<sup>20</sup>) efficiently handles medium buffers|
 |1MB-4MB   |single list|Best-Fit|index = 26|Request for such large blocks is uncommon so due to less population of such blocks we can be thorough|
-|4MB-8MB   |single list|Best-Fit|index = 27|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"|
-|>8MB      |Direct OS call|Nil|Nil|No need to cache such big blocks. When user is done with the block we return it to the OS|
-
+|>4MB      |Direct OS call|Nil|Nil|No need to cache such big blocks. When user is done with the block we return it to the OS|
 
 Some points:- 
 
 1\. Since allocated blocks dont have footer, the footer space can be used for payload.
 
-2\. If the user requests a payload(p) where `p % 16 != 0`, we will pad the end to make the whole block 16 byte aligned. **So each freelist will contain blocks which are multiples of 16** but ofc within the size-range that indexes into that freelist.
+2\. If the user requests a payload(p) where `p % 16 != 0`, we will make it nearest multiple of 16 **So each payload is 16 byte aligned** (because header+prev+next+footer is already 16 byte aligned.)
 
-- Hence if you have a large block and you want to split it into two pieces- both pieces must be 16 byte aligned and of size > min block size (usually `48` bytes on 64bit systems).<br><br>
+- Hence if you have a large block and you want to split it into two pieces- both pieces must be 16 byte aligned and of size > min block size (usually `32` bytes on 64bit systems).<br><br>
 Header: 8 bytes<br>
 Prev pointer: 8 bytes<br>
 Next pointer: 8 bytes<br>
-Padding: 8 bytes (to make payload start 16-byte aligned)<br>
 Footer: 8 bytes<br><br>
-So far: 8 + 8 + 8 + 8 + 8 = 40 bytes<br>
-To satisfy 16-byte alignment for the block size itself, you round up to 48 bytes. which means more 8 byte padding before footer.<br><br>
-Hence, `min block size` = `48` bytes and this supports a `paylaod` of `16` bytes max **but we will have 64 byte min paylaod**.
+So far: 8 + 8 + 8 + 8 = 32 bytes<br>
+
+Hence, `min block size` = `32` bytes and this supports a `16 byte aligned paylaod` of `16` bytes max.
 
 3\. **Splitting a block may need Re-categorization of split free block into a different list.**
 
 ### How we allocate.
+
+When we allocate a free block the ptr we return to the user points to the `prev` ptr start in the free block. In this way we dont need a separate struct for allocated blocks just because we want to use the `prev` & `next` ptr space in the free block as payload as well as the footer.
 
 To minimize fragmentation and avoid wasting memory, the allocator should:
 

@@ -34,7 +34,7 @@ int current_avail_size = 0;
 
 /* My globals */
 
-#define listqty 27
+#define listqty 17
 
 typedef struct island_t {
   void* next_island;
@@ -42,8 +42,14 @@ typedef struct island_t {
   int block1_offset;
 } island_t;
 
-island_t* first_islandHeader = NULL; /* always poinst to start of whole heap */
-island_t* active_islandHeader = NULL; /* always points to the last island that was mmapped*/
+typedef struct block_t {
+  size_t blocksize;
+  void* prev;
+  void* next;
+}block_t;
+
+island_t* first_island = NULL; /* always poinst to start of whole heap */
+island_t* active_island = NULL; /* always points to the last island that was mmapped*/
 void* freeArrPtr = NULL;
 
 /* 
@@ -67,7 +73,7 @@ int mm_init(void)
   }
   /* store the island metadata */
   island_t* island_header = (island_t*)current_avail;
-  first_islandHeader = island_header;
+  first_island = island_header;
   island_header->next_island = NULL;
   island_header->size = current_avail_size;
 
@@ -83,15 +89,15 @@ int mm_init(void)
 
   /* Store first block offset in island header and store it in a global */
   island_header->block1_offset = hsize + list_bytes;
-  active_islandHeader = island_header; /* will be useful to link the islands */
+  active_island = island_header; /* will be useful to link the islands */
 
   /*read the next 8 bytes as ptr then deref that and set size, flags*/
   /*hence make epilogue block and also store info abt predecessor block*/
-  *(size_t*)current_avail = 3; /* set the prevalloc and alloc flags and set size = 0 */
+  *(size_t*)current_avail = 0x3; /* set the prevalloc and alloc flags and set size = 0 */
 
   /*Initialise the seg freelist to all NULLs*/
   void* bp = freeArrPtr;                // OR More Cleanly:- 
-  for (int i = 0; i < listqty; i++) {   // void **seg_list = (void**)freeArrPtr; 
+  for (int _ = 0; _ < listqty; _++) {   // void **seg_list = (void**)freeArrPtr; 
     *(void**)bp = NULL;                 // for (int i = 0; i < listqty; i++) {
     bp = (void*)((char*)bp + 8);        //    seg_list[i] = NULL; }
   }                                     
@@ -105,20 +111,44 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
-  int newsize = ALIGN(size);
-  void *p;
-  
+  /* 
   if (current_avail_size < newsize) {
     current_avail_size = PAGE_ALIGN(newsize);
     current_avail = mem_map(current_avail_size);
     if (current_avail == NULL)
       return NULL;
-  }
+  } 
 
   p = current_avail;
   current_avail += newsize;
   current_avail_size -= newsize;
   return p;
+  */
+
+  /*First we will search in its index
+    Go higher if not found in its index
+    Allocate from current_avail if couldn't find in whole freelist
+    If current_avail_size too small make new island */
+
+  /*adjusted size is 16 byte aligned block size */
+  size_t asize = ALIGN(size + sizeof(size_t));
+  void *p;
+
+  /* Get the freelist index */
+  int index = -1; int toobig = 0;
+  if (asize > (1<<20)) {
+    if(asize < (4*(1<<20) + 1))
+      index = 16; 
+    else
+      toobig = 1;
+  } else {
+    index = 0;
+    size_t temp = asize; /* So that we don't destroy original asize! by shifting */
+    while (temp > 32) {
+      temp >>= 1;
+      index++;
+    }
+  }
 }
 
 /*
