@@ -43,10 +43,12 @@ typedef struct island_t {
 } island_t;
 
 typedef struct block_t {
-  size_t blocksize;
+  size_t blocksize; /* alloc flag = LSB, prevalloc flag = 2nd LSB */
   void* prev;
   void* next;
 }block_t;
+#define ALLOC 0x1
+#define PREVALLOC 0x2
 
 island_t* first_island = NULL; /* always poinst to start of whole heap */
 island_t* active_island = NULL; /* always points to the last island that was mmapped*/
@@ -96,6 +98,7 @@ int mm_init(void)
   *(size_t*)current_avail = 0x3; /* set the prevalloc and alloc flags and set size = 0 */
 
   /*Initialise the seg freelist to all NULLs*/
+  /* **So that the freelists are properly NULL terminated */
   void* bp = freeArrPtr;                // OR More Cleanly:- 
   for (int _ = 0; _ < listqty; _++) {   // void **seg_list = (void**)freeArrPtr; 
     *(void**)bp = NULL;                 // for (int i = 0; i < listqty; i++) {
@@ -111,20 +114,6 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
-  /* 
-  if (current_avail_size < newsize) {
-    current_avail_size = PAGE_ALIGN(newsize);
-    current_avail = mem_map(current_avail_size);
-    if (current_avail == NULL)
-      return NULL;
-  } 
-
-  p = current_avail;
-  current_avail += newsize;
-  current_avail_size -= newsize;
-  return p;
-  */
-
   /*First we will search in its index
     Go higher if not found in its index
     Allocate from current_avail if couldn't find in whole freelist
@@ -143,11 +132,81 @@ void *mm_malloc(size_t size)
       toobig = 1;
   } else {
     index = 0;
-    size_t temp = asize; /* So that we don't destroy original asize! by shifting */
+    size_t temp = asize; /* So that we don't destroy original 'asize' by shifting */
     while (temp > 32) {
       temp >>= 1;
       index++;
     }
+  }
+
+  /* Search(first-fit) in the freelist */
+  if(!toobig){
+    void **seg_list = (void**)freeArrPtr;
+    void* freelist = seg_list[index];
+
+    /* if freelist is non empty */
+    if (freelist != NULL) {
+      /* Search in this freelist for suitable freeblock. if cant find go to higher freelist 
+         if cant find in whole freelist array allocate from virgin heap space or OS */
+      if (!(index == listqty - 1)) {
+
+      }
+      /* Do best-fit if block in 17th list(thorough) if cant find call mem_map() */
+      else {
+  
+      }
+    }
+    /* if this freelist is empty */
+    else { 
+      /* check higher freelists(first-fit) if none contain anything allocate from current_avail. 
+         If current_avail_size is not enough allocate new page */
+      int counter = index;
+      for (int i = index + 1; i < listqty; i++) {
+        freelist = seg_list[i];
+        if (freelist == NULL) {
+          counter++;
+          continue;
+        }
+
+        /* if a higher freelist is not empty 
+           No need to traverse it as any block in this freelist > 'asize' */
+        block_t* block = (block_t*) freelist; 
+        size_t blocksize = block->blocksize & ~0xF; // store size of this freeblock 
+        block->blocksize = (asize & ~0xF) | (blocksize & 0xF); // set newsize. Note- doesnt change blocksize or asize
+        block->blocksize |= ALLOC; // Set the alloc bit 
+
+        /* now break this block up, put footer at end of new free block 
+           and insert into suitable freelist - (if applicable) */
+        int fragmentSize = blocksize - asize; // The fragmentSize is always 16byte aligned(as blocksize and asize are always 16byte aligned)
+        if (fragmentSize >= sizeof(block_t)+sizeof(size_t)/*footer*/) { 
+          block_t* newFreeblock = (block_t*)((char*)block + asize);
+          newFreeblock->blocksize = fragmentSize;
+          newFreeblock->blocksize |= PREVALLOC; // set prevalloc flag(since this block is a fragment of a larger free block)
+
+          // put footer at end
+
+          // insert into a freelist 
+
+        }
+
+        p = (void*)block->prev;
+        return p;
+      }
+
+      /* Couldnt find any suitable block in freelist array 
+          Allocate from current_avail or OS */
+      if (counter == listqty - 1) {
+        if (current_avail_size >= asize + sizeof(size_t)) { /* if the block and epilogue can fit within virgin heap space*/
+
+        } else { /* get new page from OS and make walls in it, link with prev island then allocate from here */
+
+        }
+      }
+    }
+  } 
+  /* If user asked for a big size which can never be in a freelist */
+  else {
+
   }
 }
 

@@ -162,31 +162,29 @@ Our segregated freelist implementation:
 
 |  Range   |Stratergy |  Search in list | Indexing | Why?  |
 |:--------:|:--------:|:---------------:|:--------:|:------|
-|64B-1024B |Min bin   |First-Fit  |freelist[0]|Fast allocation|
-|>32B - 1MB |Power of 2|First-Fit  |For loop OR clz(Math) |15 bins(2<sup>6</sup> to 2<sup>20</sup>) efficiently handles medium buffers|
-|1MB-4MB   |single list|Best-Fit|index = 26|Request for such large blocks is uncommon so due to less population of such blocks we can be thorough|
+|32B       |Min bin   |First-Fit  |index = 0|Fast allocation|
+|>32B - 1MB|Power of 2|First-Fit  |For loop OR clz(Math) |15 bins(2<sup>6</sup> to 2<sup>20</sup>) efficiently handles medium buffers|
+|>1MB - 4MB|single list|Best-Fit|index = 26|Request for such large blocks is uncommon so due to less population of such blocks we can be thorough|
 |>4MB      |Direct OS call|Nil|Nil|No need to cache such big blocks. When user is done with the block we return it to the OS|
 
-Some points:- 
+Imp points:- 
 
-1\. Since allocated blocks dont have footer, the footer space can be used for payload.
+1\. Since allocated blocks dont have footer block or prev or next ptrs, they can be used for payload.
 
-2\. If the user requests a payload(p) where `p % 16 != 0`, we will make it nearest multiple of 16 **So each payload is 16 byte aligned** (because header+prev+next+footer is already 16 byte aligned.)
-
-- Hence if you have a large block and you want to split it into two pieces- both pieces must be 16 byte aligned and of size > min block size (usually `32` bytes on 64bit systems).<br><br>
+- Hence if you have a large block and you want to split it into two pieces- both pieces must be 16 byte aligned and of size >= min block size (usually `32` bytes on 64bit systems):<br><br>
 Header: 8 bytes<br>
 Prev pointer: 8 bytes<br>
 Next pointer: 8 bytes<br>
 Footer: 8 bytes<br><br>
 So far: 8 + 8 + 8 + 8 = 32 bytes<br>
 
-Hence, `min block size` = `32` bytes and this supports a `16 byte aligned paylaod` of `16` bytes max.
+Hence, `min block size` = `32` bytes and this supports a payload of `24` bytes max.
 
-3\. **Splitting a block may need Re-categorization of split free block into a different list.**
+2\. Splitting a block may need Re-categorization of split free block into a different list.
 
 ### How we allocate.
 
-When we allocate a free block the ptr we return to the user points to the `prev` ptr start in the free block. In this way we dont need a separate struct for allocated blocks just because we want to use the `prev` & `next` ptr space in the free block as payload as well as the footer.
+When we allocate a free block the ptr that we return to the user points to the start of the `prev` ptr in the free block(because we store `prev` before `next` in blocks). In this way we dont need a separate struct for allocated blocks just because we want to use the `prev` & `next` ptr space in the free block as payload as well as the footer.
 
 To minimize fragmentation and avoid wasting memory, the allocator should:
 
