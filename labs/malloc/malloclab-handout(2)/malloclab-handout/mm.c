@@ -172,8 +172,8 @@ void *mm_malloc(size_t size)
         }
         block->prev = NULL; // although not needed due to how we insert a block in a freelist, still good hygiene
 
-        size_t blocksize = block->blocksize & ~0xF; // store the size of this unsplit freeblock
         block->blocksize |= ALLOC; // Set the alloc bit 
+        size_t blocksize = block->blocksize & ~0xF; // store the size of this unsplit freeblock
 
         /* now break this block up, put footer at end of new free block 
            and insert into suitable freelist - (if applicable) */
