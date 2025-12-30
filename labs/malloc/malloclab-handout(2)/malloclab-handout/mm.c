@@ -166,8 +166,7 @@ void *mm_malloc(size_t size)
         // **Unlink the block from the freelist
         seg_list[i] = block->next;
         if(block->next != NULL) {
-          block_t* nextBlock = (block_t*)block->next;
-          nextBlock->prev = NULL;
+          ((block_t*)block->next)->prev = NULL;
           block->next = NULL; 
         }
         block->prev = NULL; // although not needed due to how we insert a block in a freelist, still good hygiene
