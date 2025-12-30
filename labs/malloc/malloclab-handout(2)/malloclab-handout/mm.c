@@ -43,12 +43,14 @@ typedef struct island_t {
 } island_t;
 
 typedef struct block_t {
-  size_t blocksize; /* alloc flag = LSB, prevalloc flag = 2nd LSB */
+  size_t blocksize; /* i.e HEADER (alloc flag = LSB, prevalloc flag = 2nd LSB) */
   void* prev;
   void* next;
 }block_t;
 #define ALLOC 0x1
 #define PREVALLOC 0x2
+#define HSIZE 8 /* can serve as: HEADER, prologue, epilogue block */
+#define MINFREEBLOCK sizeof(block_t)+HSIZE
 
 island_t* first_island = NULL; /* always poinst to start of whole heap */
 island_t* active_island = NULL; /* always points to the last island that was mmapped*/
@@ -99,14 +101,14 @@ int mm_init(void)
 
   /*read the next 8 bytes as ptr then deref that and set size, flags*/
   /*hence make epilogue block and also store info abt predecessor block*/
-  *(size_t*)current_avail = 0x3; /* set the prevalloc and alloc flags and set size = 0 */
+  *(size_t*)current_avail = ALLOC + PREVALLOC; /* set the prevalloc and alloc flags and set size = 0 */
 
   /*Initialise the seg freelist to all NULLs*/
   /* **So that the freelists are properly NULL terminated */
   void* bp = freeArrPtr;                // OR More Cleanly:- 
   for (int _ = 0; _ < listqty; _++) {   // void **seg_list = (void**)freeArrPtr; 
     *(void**)bp = NULL;                 // for (int i = 0; i < listqty; i++) {
-    bp = (void*)((char*)bp + 8);        //    seg_list[i] = NULL; }
+    bp = (void*)((char*)bp + HSIZE);        //    seg_list[i] = NULL; }
   }                                     
 
   return 0;
@@ -123,8 +125,9 @@ void *mm_malloc(size_t size)
     Allocate from current_avail if couldn't find in whole freelist
     If current_avail_size too small make new island */
 
-  /*adjusted size is 16 byte aligned block size */
-  size_t asize = ALIGN(size + sizeof(size_t));
+  // adjusted size is 16 byte aligned block size
+  size_t asize = ALIGN(size + HSIZE/*header block*/);
+  if (asize < 32) asize = 32; // since, if size < 9, asize = 16 (will break when this block is freed)
   void *p;
 
   /* Get the freelist index */
@@ -151,8 +154,8 @@ void *mm_malloc(size_t size)
     /* if this freelist is empty */
     else { 
       /* First check higher freelists(first-fit).
-         If none contain anything allocate from current_avail. 
-         If current_avail_size is not enough allocate new page */
+         If none contain suitable block-> allocate from current_avail. 
+         If current_avail_size is not enough-> allocate new page */
       int counter = index;
       for (int i = index + 1; i < listqty; i++) {
         freelist = seg_list[i];
@@ -177,43 +180,112 @@ void *mm_malloc(size_t size)
         /* now break this block up, put footer at end of new free block 
            and insert into suitable freelist - (if applicable) */
         int fragmentSize = blocksize - asize; // The fragmentSize is always 16byte aligned(as blocksize and asize are always 16byte aligned)
-        if (fragmentSize >= sizeof(block_t) + 8/*footer*/) { 
+        if (fragmentSize >= MINFREEBLOCK) { 
           // set newsize since we will be splitting this 
           block->blocksize = (asize & ~0xF) | (block->blocksize & 0xF);
-          block->blocksize |= ALLOC; // safety
+          block->blocksize |= ALLOC; 
 
           block_t* newFreeblock = (block_t*)((char*)block + asize);
           newFreeblock->blocksize = fragmentSize;
           newFreeblock->blocksize |= PREVALLOC; // set prevalloc flag(since this block is a fragment of a larger free block)
+          newFreeblock->blocksize &= ~ALLOC; //clear ALLOC flag. 
 
           // put footer at end
-          size_t* fp = (size_t*)((char*)newFreeblock + fragmentSize - 8);
+          size_t* fp = (size_t*)((char*)newFreeblock + fragmentSize - HSIZE/*footer size*/);
           *fp = newFreeblock->blocksize; // contains size and flags
 
           // insert into a freelist (LIFO)
           int newIndex = 0;
           findIndex(fragmentSize, &newIndex, NULL);
-          void* freelist = seg_list[newIndex];
-          if (freelist != NULL) {
-            block_t* frist_block = (block_t*)freelist;
+          void* ourfreelist = seg_list[newIndex];
+          if (ourfreelist != NULL) {
+            block_t* frist_block = (block_t*)ourfreelist;
             frist_block->prev = (void*)newFreeblock;
           }
           newFreeblock->next = seg_list[newIndex];
           newFreeblock->prev = NULL;
-          seg_list[newIndex] = newFreeblock;
+          seg_list[newIndex] = (void*)newFreeblock;
 
         }
         p = (void*)&block->prev; /* i.e p = (void*)((char*)block + 8); */
         return p;
       }
 
-      /* Couldnt find any suitable block in freelist array 
-          Allocate from current_avail or OS */
-      if (counter == listqty - 1) { // i.e if all freelists searched but couldnt fine suitable block
-        if (current_avail_size >= asize + sizeof(size_t)) { /* if the block and epilogue can fit within virgin heap space*/
+      /* Couldnt find any suitable block in freelist array-> Allocate from current_avail 
+         current_avail doesnt hv enough space-> map new pages and migrate current_avail there */
+      if (counter == listqty - 1) { // if all freelists searched but couldnt fine suitable block
+        if (current_avail_size >= asize + HSIZE) { // if the block & epilogue can fit within virgin heap space
+          
+          // Allocate the block and shrink virgin heap space
+          int prevalloc = (*(size_t*)current_avail) & PREVALLOC; // get the alloc status of the predecessor block
+          block_t* freshblock = (block_t*)current_avail;
+          freshblock->blocksize = asize;
+          freshblock->blocksize |= (ALLOC + prevalloc);
+          
+          // Put the epilogue
+          current_avail = (void*)((char*)current_avail + asize);
+          current_avail_size -= asize;
+          *(size_t*)current_avail = ALLOC + PREVALLOC;
 
-        } else { /* get new page from OS and make walls in it, link with prev island then allocate from here */
+          p = (void*)&freshblock->prev;
+          return p;
+        } 
+        else { /* get new page from OS, make walls in it, free virgin space in prev island(if applicable), 
+          link with prev island then allocate from here */
 
+          // for new islands we need a prologue(or 8byte padding) since we want blocks to start at an 8byte offset addr
+          int newIslandsize = PAGE_ALIGN(sizeof(island_t) + HSIZE/*prologue*/ + asize + HSIZE/*epilogue*/);
+          void* newIslandptr = mem_map(newIslandsize);
+
+          island_t* newIslandHeader = (island_t*)newIslandptr;
+          newIslandHeader->size = newIslandsize;
+          newIslandHeader->next_island = NULL;
+          active_island->next_island = newIslandptr; // link this island to previously active one
+          active_island = newIslandHeader; // update the active_island to point to this current one
+
+          // make prologue(padding) block- remember to set the prevalloc flag of the next block
+          newIslandptr = (void*)((char*)newIslandptr + sizeof(island_t)); 
+          *(size_t*)newIslandptr = ALLOC + PREVALLOC; /* prevalloc flag of this padding block should likely never be checked 
+                                                         bt if it does this is some safety atleast */
+          // allocate the asize block
+          newIslandptr = (void*)((char*)newIslandptr + HSIZE);
+          block_t* freshblock = (block_t*)newIslandptr;
+          freshblock->blocksize = (asize | (ALLOC + PREVALLOC)); // -remember to set prevalloc flag of next 8byte block
+          newIslandptr = (void*)((char*)newIslandptr + asize); 
+          int usedbytes = sizeof(island_t)/*island header*/ + HSIZE/*padding*/ + asize; // store for use by current_avail_size
+          newIslandHeader->block1_offset = usedbytes - asize;
+
+          /* free virgin space in prev active island (if bigger than min freeblock size),
+             make epilogue after migrating current_avail here */
+          current_avail_size -= HSIZE;/* size without epilogue of tht island */
+          if (current_avail_size >= MINFREEBLOCK) {
+            int prevalloc = (*(size_t*)current_avail) & PREVALLOC; // store prevalloc flag that was stored in epilogue
+
+            // free the block 
+            int freeblocksize = (current_avail_size | PREVALLOC ) & ~ALLOC;
+            block_t* newFreeblock = (block_t*)current_avail;
+            newFreeblock->blocksize = freeblocksize; 
+            // put footer at the end
+            current_avail = (void*)((char*)current_avail - HSIZE/*footer size*/);
+            *(size_t*)current_avail = freeblocksize;
+
+            // insert into suitable freelist (LIFO)
+            int newIndex = 0;
+            findIndex(current_avail_size, &newIndex, NULL);
+            void* ourfreelist = seg_list[newIndex];
+            if (ourfreelist != NULL) {
+              ((block_t*)ourfreelist)->prev = (void*)newFreeblock;
+            }
+            newFreeblock->next = seg_list[newIndex];
+            newFreeblock->prev = NULL;
+            seg_list[newIndex] = (void*)newFreeblock;
+
+            // migrate current_avail to new island and set current_avail_size
+
+          }
+
+          // do not forget to return ptr to user
+          
         }
       }
     }

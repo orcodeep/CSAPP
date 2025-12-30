@@ -126,9 +126,17 @@ And you also set the `prev alloc` flag in the block that current_avail ptr point
 
 ### Epilogue allocation
 
-The address pointed to by `current_avail` **sMUST alway contain the Epilogue Header. i.e the size = 0 and `alloc` flag = 1.** (when new block allocated from `current_avail` the newly allocated block will move `current_avail` forward and also set the `prevalloc` flag of the block it points at to 1 again)
+The address pointed to by `current_avail` **MUST alway contain the Epilogue Header. i.e the size = 0 and `alloc` flag = 1.** (when new block allocated from `current_avail` the newly allocated block will move `current_avail` forward and also set the `prevalloc` flag of the block it points at to 1 again)
 
 This ensures that any block sitting immediately before the wilderness sees a "wall" (Allocated Block) when it looks forward.
+
+#### `EPILOGUE SIZE`
+
+**Because we started our headers at an 8-byte offset, an 8-byte Epilogue is exactly what is required to restore 16-byte alignment at the very end of the allocated region of the island.**
+
+_`This means the virgin space after the epilogue block in the island is always a multiple of 16.`_
+
+Beautiful`{:~D`
 
 ### subsequent calls to mem_map()
 
