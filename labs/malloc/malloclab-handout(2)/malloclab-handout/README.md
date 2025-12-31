@@ -132,9 +132,9 @@ This ensures that any block sitting immediately before the wilderness sees a "wa
 
 #### `EPILOGUE SIZE`
 
-**Because we started our headers at an 8-byte offset, an 8-byte Epilogue is exactly what is required to restore 16-byte alignment at the very end of the allocated region of the island.**
+**Because we started our headers at an 8-byte offset, an 8-byte Epilogue is what is required to restore 16-byte alignment at the very end of the allocated region of the island.**
 
-_`This means the virgin space after the epilogue block in the island is always a multiple of 16.`_
+- _`Hence the virgin space after the epilogue block in the island is always a multiple of 16.`_
 
 Beautiful`{:~D`
 
