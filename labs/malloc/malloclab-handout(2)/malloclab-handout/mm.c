@@ -57,6 +57,8 @@ island_t* active_island = NULL; /* always points to the last island that was mma
 void* freeArrPtr = NULL;
 
 /* My helper functions */
+inline void splitAndInsert(block_t* block, size_t asize, size_t fragmentSize);
+inline void LIFO_insert(block_t* newFreeblock, int newIndex);
 inline void findIndex(size_t asize, int* index, int* toobig);
 
 
@@ -120,13 +122,8 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
-  /*First we will search in its index
-    Go higher if not found in its index
-    Allocate from current_avail if couldn't find in whole freelist
-    If current_avail_size too small make new island */
-
   // adjusted size is 16 byte aligned block size
-  size_t asize = ALIGN(size + HSIZE/*header block*/);
+  size_t asize = ALIGN(size + HSIZE/*header*/);
   if (asize < 32) asize = 32; // since, if size < 9, asize = 16 (will break when this block is freed)
   void *p;
 
@@ -140,14 +137,44 @@ void *mm_malloc(size_t size)
     void* freelist = seg_list[index];
 
     /* if freelist is non empty */
+    /* Search in this freelist for suitable freeblock. if cant find go to higher freelist 
+       if cant find in whole freelist array allocate from virgin heap space or OS */
     if (freelist != NULL) {
-      /* Search in this freelist for suitable freeblock. if cant find go to higher freelist 
-         if cant find in whole freelist array allocate from virgin heap space or OS */
-      
+      // traverse the freelist till you find a freeblock that is >= asize (first-fit)
+      block_t* currentblock = (block_t*)freelist;
 
+      while(currentblock != NULL) {
+        size_t blocksize = currentblock->blocksize & ~0xF;
+        if (blocksize >= asize) {
+          // unlink this block from the freelist but maintain the freelist
+          block_t* prevblock = (block_t*)currentblock->prev;
+          block_t* nextblock = (block_t*)currentblock->next;
+          if (prevblock != NULL) {
+            prevblock->next = (void*)nextblock;
+          } else // i.e if currentblock is head of freelist
+              seg_list[index] = (void*)nextblock; /*freelist is a local ptr var. Updating that wont update the actual freelist */
+          if (nextblock != NULL) {
+            nextblock->prev = (void*)prevblock;
+          }
+
+          // allocate the block, split & reinsert if applicable, also **update flag in successor blocks**
+          currentblock->blocksize |= ALLOC;
+          size_t fragmentsize = blocksize - asize;
+          if (fragmentsize >= MINFREEBLOCK) {
+            splitAndInsert(currentblock, asize, fragmentsize); // it auto updates the flags in successor blocks
+          } else {
+            // set prevalloc flag to 1 in the successor block after whole block
+            *(size_t*)((char*)currentblock + blocksize) |= PREVALLOC;
+          }
+
+          p = (void*)&currentblock->prev; // we want payload to overwrite the prev,next,footer
+          return p;
+        }
+        currentblock = (block_t*)(currentblock->next);
+      }
     }
-    /* if indexed freelist is empty or no suitable block in it */
 
+    /* indexed freelist is empty or no suitable block in it */
     /* First check higher freelists(first-fit).
         If none contain suitable block-> allocate from current_avail. 
         If current_avail_size is not enough-> allocate new page */
@@ -161,6 +188,7 @@ void *mm_malloc(size_t size)
       /* if a higher freelist is not empty 
           No need to traverse it as any block in this freelist > 'asize' */
       block_t* block = (block_t*) freelist; 
+      size_t blocksize = block->blocksize & ~0xF;
       // **Unlink the block from the freelist
       seg_list[i] = block->next;
       if(block->next != NULL) {
@@ -169,39 +197,17 @@ void *mm_malloc(size_t size)
       }
       block->prev = NULL; // although not needed due to how we insert a block in a freelist, still good hygiene
 
-      block->blocksize |= ALLOC; // Set the alloc bit 
-      size_t blocksize = block->blocksize & ~0xF; // store the size of this unsplit freeblock
-
-    /* now break this block up, put footer at end of new free block 
+    /* allocate the block; break this block up, put footer at end of new free block 
        and insert into suitable freelist - (if applicable) */
-      int fragmentSize = blocksize - asize; // The fragmentSize is always 16byte aligned(as blocksize and asize are always 16byte aligned)
+      block->blocksize |= ALLOC; // Set the alloc bit 
+      size_t fragmentSize = blocksize - asize; // The fragmentSize is always 16byte aligned(as blocksize and asize are always 16byte aligned)
       if (fragmentSize >= MINFREEBLOCK) { 
-        // set newsize since we will be splitting this 
-        block->blocksize = (asize & ~0xF) | (block->blocksize & 0xF);
-        block->blocksize |= ALLOC; 
-
-        block_t* newFreeblock = (block_t*)((char*)block + asize);
-        newFreeblock->blocksize = fragmentSize;
-        newFreeblock->blocksize |= PREVALLOC; // set prevalloc flag(since this block is a fragment of a larger free block)
-        newFreeblock->blocksize &= ~ALLOC; //clear ALLOC flag. 
-
-        // put footer at end
-        size_t* fp = (size_t*)((char*)newFreeblock + fragmentSize - HSIZE/*footer size*/);
-        *fp = newFreeblock->blocksize; // contains size and flags
-
-        // insert into a freelist (LIFO)
-        int newIndex = 0;
-        findIndex(fragmentSize, &newIndex, NULL);
-        void* ourfreelist = seg_list[newIndex];
-        if (ourfreelist != NULL) {
-          block_t* frist_block = (block_t*)ourfreelist;
-          frist_block->prev = (void*)newFreeblock;
-        }
-        newFreeblock->next = seg_list[newIndex];
-        newFreeblock->prev = NULL;
-        seg_list[newIndex] = (void*)newFreeblock;
-
+        splitAndInsert(block, asize, fragmentSize);
+      } else {
+        // set prevalloc flag to 1 in the successor block after whole block
+        *(size_t*)((char*)block + blocksize) |= PREVALLOC;
       }
+
       p = (void*)&block->prev; /* i.e p = (void*)((char*)block + 8); */
       return p;
     }
@@ -268,13 +274,7 @@ void *mm_malloc(size_t size)
           // insert into suitable freelist (LIFO)
           int newIndex = 0;
           findIndex(current_avail_size, &newIndex, NULL);
-          void* ourfreelist = seg_list[newIndex];
-          if (ourfreelist != NULL) {
-            ((block_t*)ourfreelist)->prev = (void*)newFreeblock;
-          }
-          newFreeblock->next = seg_list[newIndex];
-          newFreeblock->prev = NULL;
-          seg_list[newIndex] = (void*)newFreeblock;
+          LIFO_insert(newFreeblock, newIndex);
 
           /* re-make the epilogue in prev active island since we overwrote it when we made freeblock from the virgin space */
           current_avail = (void*)((char*)current_avail + HSIZE); // mv it to after the last freeblock in this island
@@ -297,6 +297,43 @@ void *mm_malloc(size_t size)
   else {
 
   }
+}
+
+inline void splitAndInsert(block_t* block, size_t asize, size_t fragmentSize)
+{
+  // set newsize since we will be splitting this 
+  block->blocksize = (asize & ~0xF) | (block->blocksize & 0xF);
+
+  block_t* newFreeblock = (block_t*)((char*)block + asize);
+  newFreeblock->blocksize = fragmentSize;
+  newFreeblock->blocksize |= PREVALLOC; // set prevalloc flag(since this block is a fragment of a larger free block)
+  newFreeblock->blocksize &= ~ALLOC; //clear ALLOC flag. 
+
+  // put footer at end
+  size_t* fp = (size_t*)((char*)newFreeblock + fragmentSize - HSIZE/*footer size*/);
+  *fp = newFreeblock->blocksize; // contains size and flags
+
+  // insert into a freelist (LIFO)
+  int newIndex = 0;
+  findIndex(fragmentSize, &newIndex, NULL);
+  LIFO_insert(newFreeblock, newIndex);
+
+  // set prevalloc flag to 0 in the successor block after newFreeblock
+  *(size_t*)((char*)newFreeblock + fragmentSize) &= ~PREVALLOC;
+}
+
+inline void LIFO_insert(block_t* newFreeblock, int newIndex)
+{
+  void** seg_list = (void**)freeArrPtr;
+
+  void* ourfreelist = seg_list[newIndex];
+  if (ourfreelist != NULL) {
+    block_t* frist_block = (block_t*)ourfreelist;
+    frist_block->prev = (void*)newFreeblock;
+  }
+  newFreeblock->next = seg_list[newIndex];
+  newFreeblock->prev = NULL;
+  seg_list[newIndex] = (void*)newFreeblock;
 }
 
 inline void findIndex(size_t asize, int* index, int* toobig) {
