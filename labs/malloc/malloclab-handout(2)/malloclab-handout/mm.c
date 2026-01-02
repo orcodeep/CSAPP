@@ -232,7 +232,6 @@ void *mm_malloc(size_t size)
 
   /* Couldnt find any suitable block in freelist array-> Allocate from current_avail 
      current_avail doesnt hv enough space-> map new pages and migrate current_avail there */
-
     if (counter == listqty - 1) { // if all freelists searched but couldnt fine suitable block
       if (current_avail_size >= asize + HSIZE) { // if the block & epilogue can fit within virgin heap space
         
@@ -254,7 +253,7 @@ void *mm_malloc(size_t size)
         link with prev island then allocate from here */
 
         // for new islands we need a prologue(or 8byte padding) since we want blocks to start at an 8byte offset addr
-        int newIslandsize = PAGE_ALIGN(sizeof(island_t) + HSIZE/*prologue*/ + asize + HSIZE/*epilogue*/);
+        size_t newIslandsize = PAGE_ALIGN(sizeof(island_t) + HSIZE/*island-prologue*/ + asize + HSIZE/*epilogue*/);
         void* newIslandptr = mem_map(newIslandsize);
 
         island_t* newIslandHeader = (island_t*)newIslandptr;
@@ -313,8 +312,22 @@ void *mm_malloc(size_t size)
   } 
   /* If user asked for a big size which can never be in a freelist */
   else {
-    // dont make an island just give whole chunk returned by OS to user. Then when user calls free() on it return to OS
+    // dont make an island just give whole chunk returned by OS to user. 
+    // When user calls free() on it(check if blocksize > 4MB in free()) just return it to OS
+    if (asize < (1<<32)) {
+      size_t chonksize = PAGE_ALIGN(asize);
+      void* startaddr = mem_map(chonksize);
+      if (startaddr == NULL) {
+        fprintf(stderr, "OS could not allocate %zu bytes\n", asize);
+        return NULL;
+      }
 
+      block_t* block = (block_t*)startaddr;
+      block->blocksize = asize | (ALLOC + PREVALLOC);
+
+      p = (void*)&block->prev;
+      return p;
+    }
   }
 }
 
@@ -343,7 +356,7 @@ inline void* unlinkAllocReinsert(block_t* chosenblock, size_t blocksize, size_t 
     *(size_t*)((char*)chosenblock + blocksize) |= PREVALLOC;
   }
 
-  return (void*)&chosenblock->prev; // we want payload to overwrite the prev,next,footer
+  return &chosenblock->prev; // we want payload to overwrite the prev,next,footer
 }
 
 inline void splitAndInsert(block_t* block, size_t asize, size_t fragmentSize)
