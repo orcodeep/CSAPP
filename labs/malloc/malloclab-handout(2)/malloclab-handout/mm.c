@@ -318,7 +318,7 @@ void *mm_malloc(size_t size)
       size_t chonksize = PAGE_ALIGN(asize);
       void* startaddr = mem_map(chonksize);
       if (startaddr == NULL) {
-        fprintf(stderr, "OS could not allocate %zu bytes\n", asize);
+        fprintf(stderr, "OS could not allocate %zu bytes\nReturning NULL\n", asize);
         return NULL;
       }
 
@@ -326,7 +326,11 @@ void *mm_malloc(size_t size)
       block->blocksize = asize | (ALLOC + PREVALLOC);
 
       p = (void*)&block->prev;
-      return p;
+      return NULL;
+    }
+    else {
+      fprintf(stderr, "Requested size too large. Aborting...\nReturned NULL\n");
+      return NULL;
     }
   }
 }
