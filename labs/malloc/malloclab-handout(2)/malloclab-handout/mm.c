@@ -140,45 +140,61 @@ void *mm_malloc(size_t size)
     /* Search in this freelist for suitable freeblock. if cant find go to higher freelist 
        if cant find in whole freelist array allocate from virgin heap space or OS */
     if (freelist != NULL) {
-      // traverse the freelist till you find a freeblock that is >= asize (first-fit)
       block_t* currentblock = (block_t*)freelist;
+      size_t blocksize = currentblock->blocksize & ~0xF;
+      
+      // if size req is in (1MB, 4MB], traverse in the last freelist (best-fit)
+      if (index == listqty - 1) {
+        while(currentblock != NULL) {
+          blocksize = currentblock->blocksize & ~0xF;
+          if (blocksize >= asize) {
 
-      while(currentblock != NULL) {
-        size_t blocksize = currentblock->blocksize & ~0xF;
-        if (blocksize >= asize) {
-          // unlink this block from the freelist but maintain the freelist
-          block_t* prevblock = (block_t*)currentblock->prev;
-          block_t* nextblock = (block_t*)currentblock->next;
-          if (prevblock != NULL) {
-            prevblock->next = (void*)nextblock;
-          } else // i.e if currentblock is head of freelist
-              seg_list[index] = (void*)nextblock; /*freelist is a local ptr var. Updating that wont update the actual freelist */
-          if (nextblock != NULL) {
-            nextblock->prev = (void*)prevblock;
           }
+          
 
-          // allocate the block, split & reinsert if applicable, also **update flag in successor blocks**
-          currentblock->blocksize |= ALLOC;
-          size_t fragmentsize = blocksize - asize;
-          if (fragmentsize >= MINFREEBLOCK) {
-            splitAndInsert(currentblock, asize, fragmentsize); // it auto updates the flags in successor blocks
-          } else {
-            // set prevalloc flag to 1 in the successor block after whole block
-            *(size_t*)((char*)currentblock + blocksize) |= PREVALLOC;
-          }
-
-          p = (void*)&currentblock->prev; // we want payload to overwrite the prev,next,footer
-          return p;
+          currentblock = (block_t*)(currentblock->next);
         }
-        currentblock = (block_t*)(currentblock->next);
       }
+      else {
+        // else traverse the freelist till you find a freeblock that is >= asize (first-fit)
+        while(currentblock != NULL) {
+          blocksize = currentblock->blocksize & ~0xF;
+          if (blocksize >= asize) {
+            // unlink this block from the freelist but maintain the freelist
+            block_t* prevblock = (block_t*)currentblock->prev;
+            block_t* nextblock = (block_t*)currentblock->next;
+            if (prevblock != NULL) {
+              prevblock->next = (void*)nextblock;
+            } else // i.e if currentblock is head of freelist
+                seg_list[index] = (void*)nextblock; /*freelist is a local ptr var. Updating that wont update the actual freelist */
+            if (nextblock != NULL) {
+              nextblock->prev = (void*)prevblock;
+            }
+  
+            // allocate the block, split & reinsert if applicable, also **update flag in successor blocks**
+            currentblock->blocksize |= ALLOC;
+            size_t fragmentsize = blocksize - asize;
+            if (fragmentsize >= MINFREEBLOCK) {
+              splitAndInsert(currentblock, asize, fragmentsize); // it auto updates the flags in successor blocks
+            } else {
+              // set prevalloc flag to 1 in the successor block after whole block
+              *(size_t*)((char*)currentblock + blocksize) |= PREVALLOC;
+            }
+  
+            p = (void*)&currentblock->prev; // we want payload to overwrite the prev,next,footer
+            return p;
+          }
+          currentblock = (block_t*)(currentblock->next);
+        }
+      }
+
     }
 
     /* indexed freelist is empty or no suitable block in it */
     /* First check higher freelists(first-fit).
         If none contain suitable block-> allocate from current_avail. 
         If current_avail_size is not enough-> allocate new page */
-    int counter = index;
+    int counter = index; // if index = 16 it will never enter this loop
     for (int i = index + 1; i < listqty; i++) {
       freelist = seg_list[i];
       if (freelist == NULL) {
@@ -295,6 +311,7 @@ void *mm_malloc(size_t size)
   } 
   /* If user asked for a big size which can never be in a freelist */
   else {
+    // dont make an island just give whole chunk returned by OS to user. Then when user calls free() on it return to OS
 
   }
 }
