@@ -57,6 +57,7 @@ island_t* active_island = NULL; /* always points to the last island that was mma
 void* freeArrPtr = NULL;
 
 /* My helper functions */
+inline void* unlinkAllocReinsert(block_t* chosenblock, size_t blocksize, size_t asize, int index);
 inline void splitAndInsert(block_t* block, size_t asize, size_t fragmentSize);
 inline void LIFO_insert(block_t* newFreeblock, int newIndex);
 inline void findIndex(size_t asize, int* index, int* toobig);
@@ -143,51 +144,52 @@ void *mm_malloc(size_t size)
       block_t* currentblock = (block_t*)freelist;
       size_t blocksize = currentblock->blocksize & ~0xF;
       
-      // if size req is in (1MB, 4MB], traverse in the last freelist (best-fit)
-      if (index == listqty - 1) {
-        while(currentblock != NULL) {
-          blocksize = currentblock->blocksize & ~0xF;
-          if (blocksize >= asize) {
-
-          }
-          
-
-          currentblock = (block_t*)(currentblock->next);
-        }
-      }
-      else {
+      if (index < listqty - 1) {
         // else traverse the freelist till you find a freeblock that is >= asize (first-fit)
         while(currentblock != NULL) {
           blocksize = currentblock->blocksize & ~0xF;
           if (blocksize >= asize) {
-            // unlink this block from the freelist but maintain the freelist
-            block_t* prevblock = (block_t*)currentblock->prev;
-            block_t* nextblock = (block_t*)currentblock->next;
-            if (prevblock != NULL) {
-              prevblock->next = (void*)nextblock;
-            } else // i.e if currentblock is head of freelist
-                seg_list[index] = (void*)nextblock; /*freelist is a local ptr var. Updating that wont update the actual freelist */
-            if (nextblock != NULL) {
-              nextblock->prev = (void*)prevblock;
-            }
-  
-            // allocate the block, split & reinsert if applicable, also **update flag in successor blocks**
-            currentblock->blocksize |= ALLOC;
-            size_t fragmentsize = blocksize - asize;
-            if (fragmentsize >= MINFREEBLOCK) {
-              splitAndInsert(currentblock, asize, fragmentsize); // it auto updates the flags in successor blocks
-            } else {
-              // set prevalloc flag to 1 in the successor block after whole block
-              *(size_t*)((char*)currentblock + blocksize) |= PREVALLOC;
-            }
-  
-            p = (void*)&currentblock->prev; // we want payload to overwrite the prev,next,footer
+            p = unlinkAllocReinsert(currentblock, blocksize, asize, index); 
             return p;
           }
           currentblock = (block_t*)(currentblock->next);
         }
       }
+      /* RARE */
+      // if size req is in (1MB, 4MB], use best-fit in the last freelist 
+      else {
+        block_t* chosenblock = NULL;
+        size_t leastWaste = 4*(1<<20) - asize; // initialise to most wasted space there can be
+        size_t fragmentSize;
 
+        // Choose the best fit block
+        while(currentblock != NULL) {
+          blocksize = currentblock->blocksize & ~0xF;
+
+          if (blocksize < asize) { 
+            /* Empty on Purpose */ 
+          }
+          else if (blocksize == asize) {
+            leastWaste = 0;
+            chosenblock = currentblock;
+            break;
+          }
+          else {
+            fragmentSize = blocksize - asize;
+            if (fragmentSize < leastWaste) {
+              leastWaste = fragmentSize;
+              chosenblock = currentblock;
+            }
+          }
+          currentblock = (block_t*)(currentblock->next);
+        }
+
+        // allocate the chosen block + split & reinsert
+        if (chosenblock != NULL) {
+          p = unlinkAllocReinsert(chosenblock, chosenblock->blocksize & ~0xF, asize, index);
+          return p;
+        }
+      }
     }
 
     /* indexed freelist is empty or no suitable block in it */
@@ -314,6 +316,34 @@ void *mm_malloc(size_t size)
     // dont make an island just give whole chunk returned by OS to user. Then when user calls free() on it return to OS
 
   }
+}
+
+inline void* unlinkAllocReinsert(block_t* chosenblock, size_t blocksize, size_t asize, int index)
+{
+  void** seg_list = (void**)freeArrPtr;
+
+  // unlink this block from the freelist but maintain the freelist
+  block_t* prevblock = (block_t*)chosenblock->prev;
+  block_t* nextblock = (block_t*)chosenblock->next;
+  if (prevblock != NULL) {
+    prevblock->next = (void*)nextblock;
+  } else // i.e if chosenblock is head of freelist
+      seg_list[index] = (void*)nextblock; /*freelist is a local ptr var. Updating that wont update the actual freelist */
+  if (nextblock != NULL) {
+    nextblock->prev = (void*)prevblock;
+  }
+
+  // allocate the block, split & reinsert if applicable, also **update flag in successor blocks**
+  chosenblock->blocksize |= ALLOC;
+  size_t fragmentsize = blocksize - asize;
+  if (fragmentsize >= MINFREEBLOCK) {
+    splitAndInsert(chosenblock, asize, fragmentsize); // it auto updates the flags in successor blocks
+  } else {
+    // set prevalloc flag to 1 in the successor block after whole block
+    *(size_t*)((char*)chosenblock + blocksize) |= PREVALLOC;
+  }
+
+  return (void*)&chosenblock->prev; // we want payload to overwrite the prev,next,footer
 }
 
 inline void splitAndInsert(block_t* block, size_t asize, size_t fragmentSize)
