@@ -184,7 +184,7 @@ void *mm_malloc(size_t size)
           currentblock = (block_t*)(currentblock->next);
         }
 
-        // allocate the chosen block + split & reinsert
+        // allocate the chosen block + split & reinsert(if applicable)
         if (chosenblock != NULL) {
           p = unlinkAllocReinsert(chosenblock, chosenblock->blocksize & ~0xF, asize, index);
           return p;
@@ -422,6 +422,42 @@ inline void findIndex(size_t asize, int* index, int* toobig) {
  */
 void mm_free(void *ptr)
 {
+  /*Freeing will basically reinsert a block in a freelist 
+    - But before doing that you need to coalesce if aplicable by checking successor block and 
+      predecessor block(by looking at the flag first then checking its footer)'s alloc status
+
+    - After coalescing, remake the block header & footer then re-insert(LIFO) into a freelist
+      also update prevalloc flag of block after coalesced block 
+
+    - Also if blocksize > 4MB, return it to the OS(mem_unmap())
+
+    - mem_unmap() can also be used for memory optimization to reduce total size of pages used 
+      by your allocator at a point(increases utilization score).
+  */
+
+  block_t* block = (block_t*)ptr;
+  size_t blocksize = block->blocksize & ~0xF;
+  if (blocksize > 4*(1<<20)) {
+    mem_unmap(ptr, blocksize);
+    return;
+  }
+
+  int prevalloc = block->blocksize & PREVALLOC;
+  int nextalloc = *(size_t*)((char*)block + blocksize) & ALLOC;
+  size_t pred_blocksize = 0; size_t succ_blocksize = 0;
+  if (!nextalloc) {
+    succ_blocksize = *(size_t*)((char*)block + blocksize) & ~0xF;
+  }
+  if (!prevalloc) { // then there must be footer
+    pred_blocksize = *(size_t*)((char*)block - HSIZE) & ~0xF;
+  }
+
+  size_t coalesce_blocksize = blocksize + pred_blocksize + succ_blocksize;
+  block_t* coalesce_block = (block_t*)((char*)block - pred_blocksize);
+  coalesce_block->blocksize = coalesce_blocksize | (coalesce_block->blocksize & 0xF); // set size
+  // clear prevalloc flag of coalesce_successor block
+  *(size_t*)((char*)coalesce_block + coalesce_blocksize) &= ~PREVALLOC;
+
 }
 
 /*
