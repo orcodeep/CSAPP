@@ -58,6 +58,7 @@ void* freeArrPtr = NULL;
 
 /* My helper functions */
 inline void* unlinkAllocReinsert(block_t* chosenblock, size_t blocksize, size_t asize, int index);
+inline void freelistUnlink(block_t* chosenblock, int index);
 inline void splitAndInsert(block_t* block, size_t asize, size_t fragmentSize);
 inline void LIFO_insert(block_t* newFreeblock, int newIndex);
 inline void findIndex(size_t asize, int* index, int* toobig);
@@ -111,8 +112,8 @@ int mm_init(void)
   void* bp = freeArrPtr;                // OR More Cleanly:- 
   for (int _ = 0; _ < listqty; _++) {   // void **seg_list = (void**)freeArrPtr; 
     *(void**)bp = NULL;                 // for (int i = 0; i < listqty; i++) {
-    bp = (void*)((char*)bp + HSIZE);        //    seg_list[i] = NULL; }
-  }                                     
+    bp = (void*)((char*)bp + HSIZE);    //    seg_list[i] = NULL; 
+  }                                     // }
 
   return 0;
 }
@@ -337,18 +338,8 @@ void *mm_malloc(size_t size)
 
 inline void* unlinkAllocReinsert(block_t* chosenblock, size_t blocksize, size_t asize, int index)
 {
-  void** seg_list = (void**)freeArrPtr;
-
   // unlink this block from the freelist but maintain the freelist
-  block_t* prevblock = (block_t*)chosenblock->prev;
-  block_t* nextblock = (block_t*)chosenblock->next;
-  if (prevblock != NULL) {
-    prevblock->next = (void*)nextblock;
-  } else // i.e if chosenblock is head of freelist
-      seg_list[index] = (void*)nextblock; /*freelist is a local ptr var. Updating that wont update the actual freelist */
-  if (nextblock != NULL) {
-    nextblock->prev = (void*)prevblock;
-  }
+  freelistUnlink(chosenblock, index);
 
   // allocate the block, split & reinsert if applicable, also **update flag in successor blocks**
   chosenblock->blocksize |= ALLOC;
@@ -361,6 +352,21 @@ inline void* unlinkAllocReinsert(block_t* chosenblock, size_t blocksize, size_t 
   }
 
   return &chosenblock->prev; // we want payload to overwrite the prev,next,footer
+}
+
+inline void freelistUnlink(block_t* chosenblock, int index) 
+{
+  void** seg_list = (void**)freeArrPtr;
+
+  block_t* prevblock = (block_t*)chosenblock->prev;
+  block_t* nextblock = (block_t*)chosenblock->next;
+  if (prevblock != NULL) {
+    prevblock->next = (void*)nextblock;
+  } else // i.e if chosenblock is head of freelist
+      seg_list[index] = (void*)nextblock;
+  if (nextblock != NULL) {
+    nextblock->prev = (void*)prevblock;
+  }
 }
 
 inline void splitAndInsert(block_t* block, size_t asize, size_t fragmentSize)
@@ -425,6 +431,11 @@ void mm_free(void *ptr)
   /*Freeing will basically reinsert a block in a freelist 
     - But before doing that you need to coalesce if aplicable by checking successor block and 
       predecessor block(by looking at the flag first then checking its footer)'s alloc status
+    
+    - When coalescing do not forget to remove the neighbors from the free list before merging
+      If the previous block is free, it is currently sitting in some linked list in seg_list. 
+      If you merge with it and change its size/pointers without removing it from that list, u 
+      corrupt your data structure.
 
     - After coalescing, remake the block header & footer then re-insert(LIFO) into a freelist
       also update prevalloc flag of block after coalesced block 
@@ -435,10 +446,10 @@ void mm_free(void *ptr)
       by your allocator at a point(increases utilization score).
   */
 
-  block_t* block = (block_t*)ptr;
+  block_t* block = (block_t*)((char*)ptr - HSIZE); /* ptr points to start of payload */
   size_t blocksize = block->blocksize & ~0xF;
   if (blocksize > 4*(1<<20)) {
-    mem_unmap(ptr, blocksize);
+    mem_unmap((char*)ptr - HSIZE, blocksize);
     return;
   }
 
@@ -447,16 +458,25 @@ void mm_free(void *ptr)
   size_t pred_blocksize = 0; size_t succ_blocksize = 0;
   if (!nextalloc) {
     succ_blocksize = *(size_t*)((char*)block + blocksize) & ~0xF;
+    int index = 0;
+    findIndex(succ_blocksize, &index, NULL);
+    freelistUnlink((block_t*)((char*)block + blocksize), index);
   }
   if (!prevalloc) { // then there must be footer
     pred_blocksize = *(size_t*)((char*)block - HSIZE) & ~0xF;
+    int index = 0;
+    findIndex(pred_blocksize, &index, NULL);
+    freelistUnlink((block_t*)((char*)block - pred_blocksize), index);
   }
 
   size_t coalesce_blocksize = blocksize + pred_blocksize + succ_blocksize;
   block_t* coalesce_block = (block_t*)((char*)block - pred_blocksize);
-  coalesce_block->blocksize = coalesce_blocksize | (coalesce_block->blocksize & 0xF); // set size
-  // clear prevalloc flag of coalesce_successor block
-  *(size_t*)((char*)coalesce_block + coalesce_blocksize) &= ~PREVALLOC;
+  coalesce_block->blocksize = coalesce_blocksize | (coalesce_block->blocksize & PREVALLOC); // Preserves PREVALLOC, forces ALLOC to 0
+  *(size_t*)((char*)coalesce_block + coalesce_blocksize) &= ~PREVALLOC; // clear prevalloc flag of successor block
+  *(size_t*)((char*)coalesce_block + coalesce_blocksize - HSIZE) = coalesce_block->blocksize; // make footer
+  int newIndex = 0;
+  findIndex(coalesce_blocksize, &newIndex, NULL);
+  LIFO_insert(coalesce_block, newIndex);
 
 }
 
