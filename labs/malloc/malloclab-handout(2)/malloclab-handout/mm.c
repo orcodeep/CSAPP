@@ -36,7 +36,8 @@ int current_avail_size = 0;
 
 #define listqty 17
 
-typedef struct island_t {
+typedef struct island_t { // 24 bytes
+  void* prev_island;
   void* next_island;
   int size;
   int block1_offset;
@@ -87,6 +88,7 @@ int mm_init(void)
   island_t* island_header = (island_t*)current_avail;
   first_island = island_header;
   island_header->next_island = NULL;
+  island_header->prev_island = NULL;
   island_header->size = current_avail_size;
 
   int hsize = sizeof(island_t);
@@ -96,11 +98,17 @@ int mm_init(void)
   /* store start of freelist array and move current_avail forward */
   freeArrPtr = current_avail;
   int list_bytes = listqty * sizeof(void*);
-  current_avail = (void*)((char*)current_avail + list_bytes);
+  current_avail = (void*)((char*)current_avail + list_bytes); // mv after freeArrPtr
   current_avail_size -= list_bytes;
 
+  /* 8byte Padding(or prologue) so tht block headers start at 8byte offsets */
+  // This is required for first island only
+  *(size_t*)current_avail = ALLOC + PREVALLOC;
+  current_avail = (void*)((char*)current_avail + HSIZE);
+  current_avail_size -= HSIZE;
+
   /* Store first block offset in island header and store it in a global */
-  island_header->block1_offset = hsize + list_bytes;
+  island_header->block1_offset = hsize + list_bytes + HSIZE/*padding*/;
   active_island = island_header; /* will be useful to link the islands */
 
   /*read the next 8 bytes as ptr then deref that and set size, flags*/
@@ -253,26 +261,22 @@ void *mm_malloc(size_t size)
       else { /* get new page from OS, make walls in it, free virgin space in prev island(if applicable), 
         link with prev island then allocate from here */
 
-        // for new islands we need a prologue(or 8byte padding) since we want blocks to start at an 8byte offset addr
-        size_t newIslandsize = PAGE_ALIGN(sizeof(island_t) + HSIZE/*island-prologue*/ + asize + HSIZE/*epilogue*/);
+        size_t newIslandsize = PAGE_ALIGN(sizeof(island_t) + asize + HSIZE/*epilogue*/);
         void* newIslandptr = mem_map(newIslandsize);
 
         island_t* newIslandHeader = (island_t*)newIslandptr;
         newIslandHeader->size = newIslandsize;
         newIslandHeader->next_island = NULL;
         active_island->next_island = newIslandptr; // link this island to previously active one
+        newIslandHeader->prev_island = active_island; // prologue will not be needed as island_t = 24bytes
         active_island = newIslandHeader; // update the active_island to point to this current one
 
-        // make prologue(padding) block- remember to set the prevalloc flag of the next block
-        newIslandptr = (void*)((char*)newIslandptr + sizeof(island_t)); 
-        *(size_t*)newIslandptr = ALLOC + PREVALLOC; /* prevalloc flag of this padding block should likely never be checked 
-                                                        bt if it does this is some safety atleast */
         // allocate the asize block
-        newIslandptr = (void*)((char*)newIslandptr + HSIZE); // mv it to after padding
+        newIslandptr = (void*)((char*)newIslandptr + sizeof(island_t)); // mv it to after island header
         block_t* freshblock = (block_t*)newIslandptr;
-        freshblock->blocksize = (asize | (ALLOC + PREVALLOC)); // remember to set prevalloc flag of next 8byte block
+        freshblock->blocksize = (asize | (ALLOC + PREVALLOC)); // remember to set prevalloc flag of the epilogue
         newIslandptr = (void*)((char*)newIslandptr + asize); // mv it to after the allocated block
-        int usedbytes = sizeof(island_t)/*island header*/ + HSIZE/*padding*/ + asize; // store for use by current_avail_size
+        int usedbytes = sizeof(island_t)/*island header*/ + asize; // store for use by current_avail_size
         newIslandHeader->block1_offset = usedbytes - asize;
 
         /* free virgin space in prev active island (if bigger than min freeblock size),
