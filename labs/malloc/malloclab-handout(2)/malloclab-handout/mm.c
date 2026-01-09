@@ -282,7 +282,7 @@ void *mm_malloc(size_t size)
           int prevalloc = (*(size_t*)current_avail) & PREVALLOC; // store prevalloc flag that was stored in epilogue
 
           // free the block 
-          int freeblocksize = (current_avail_size | PREVALLOC ) & ~ALLOC;
+          int freeblocksize = (current_avail_size | prevalloc ) & ~ALLOC;
           block_t* newFreeblock = (block_t*)current_avail;
           newFreeblock->blocksize = freeblocksize; 
           // put footer at the end
@@ -303,7 +303,7 @@ void *mm_malloc(size_t size)
         // migrate current_avail to new island 
         current_avail = newIslandptr;
         current_avail_size = newIslandsize - usedbytes;
-        // make epilogue
+        // make epilogue in newisland
         *(size_t*)current_avail = ALLOC + PREVALLOC; 
         // return ptr to user
         p = (void*)&freshblock->prev;
