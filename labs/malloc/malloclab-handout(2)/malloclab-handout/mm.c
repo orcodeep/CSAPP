@@ -168,7 +168,7 @@ void *mm_malloc(size_t size)
       // if size req is in (1MB, 4MB], use best-fit in the last freelist 
       else {
         block_t* chosenblock = NULL;
-        size_t leastWaste = 4*(1<<20) - asize; // initialise to most wasted space there can be
+        size_t leastWaste = 4*(1<<20) - 32 - asize; // initialise to most wasted space there can be
         size_t fragmentSize;
 
         // Choose the best fit block
@@ -319,7 +319,7 @@ void *mm_malloc(size_t size)
   else {
     // dont make an island just give whole chunk returned by OS to user. 
     // When user calls free() on it(check if blocksize > 4MB in free()) just return it to OS
-    if (asize < (1<<32)) {
+    if (asize <= ~0) { // ~0 = (2^32 - 1) as asize is of type size_t, ~0 will be treated as size_t
       size_t chonksize = PAGE_ALIGN(asize);
       void* startaddr = mem_map(chonksize);
       if (startaddr == NULL) {
@@ -412,7 +412,7 @@ inline void LIFO_insert(block_t* newFreeblock, int newIndex)
 
 inline void findIndex(size_t asize, int* index, int* toobig) {
   if (asize > (1<<20)) {
-    if(asize <= 4*(1<<20))
+    if(asize <= 4*(1<<20) - 32/*island overhead*/)
       *index = 16; 
     else {
       if (toobig != NULL)

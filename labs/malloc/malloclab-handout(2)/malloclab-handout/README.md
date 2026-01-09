@@ -172,12 +172,14 @@ Our segregated freelist implementation:
 |:--------:|:--------:|:---------------:|:--------:|:------|
 |32B       |Min bin   |First-Fit  |index = 0|Fast allocation|
 |>32B - 1MB|Power of 2|First-Fit  |For loop OR clz(Math) |15 bins(2<sup>6</sup> to 2<sup>20</sup>) efficiently handles medium buffers|
-|>1MB - 4MB|single list|Best-Fit|index = 26|Request for such large blocks is uncommon so due to less population of such blocks we can be thorough|
-|>4MB      |Direct OS call|Nil|Nil|No need to cache such big blocks. When user is done with the block we return it to the OS|
+|>1MB - (4MB - 32)|single list|Best-Fit|index = 26|Request for such large blocks is uncommon so due to less population of such blocks we can be thorough|
+|>(4MB-32)      |Direct OS call|Nil|Nil|No need to cache such big blocks. When user is done with the block we return it to the OS|
 
 Imp points:- 
 
-1\. Since allocated blocks dont have footer block or prev or next ptrs, they can be used for payload.
+1\. 4MB - 32 as 32B is island overhead.
+
+2\. Since allocated blocks dont have footer block or prev or next ptrs, they can be used for payload.
 
 - Hence if you have a large block and you want to split it into two pieces- both pieces must be 16 byte aligned and of size >= min block size (usually `32` bytes on 64bit systems):<br><br>
 Header: 8 bytes<br>
@@ -188,7 +190,7 @@ So far: 8 + 8 + 8 + 8 = 32 bytes<br>
 
 Hence, `min block size` = `32` bytes and this supports a payload of `24` bytes max.
 
-2\. Splitting a block may need Re-categorization of split free block into a different list.
+3\. Splitting a block may need Re-categorization of split free block into a different list.
 
 ### How we allocate.
 
