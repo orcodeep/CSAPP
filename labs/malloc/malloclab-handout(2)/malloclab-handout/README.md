@@ -1,6 +1,8 @@
 
 [Implementation details](#implementation)
 
+[Design details](#details)
+
 # Given in mm.c
 
 ## What PAGE_ALIGN() macro does
@@ -74,9 +76,7 @@ The handout specifies that `mm_malloc()` func returns a ptr to an allocated bloc
 
 - Using `int` saves space in the allocator’s global data.
 
-# Implementation
-
-[Seg freelist implementation](#freelist)
+# DETAILS
 
 ## Heap start and end
 
@@ -90,23 +90,22 @@ This is required for `mm_check()` becausse it must travel the whole heap to chec
 - We Make a linked list of islands.
 - Define two global head ptrs (to start of whole heap & to start of current island)
 
-Define a segment struct at the start of each island.<br>
-It contains:
+Define a isalnd header at the start of each island.<br>
+It contains at minimum:
 - The ptr to the start of the next next island.
-- Size i.e Total number of bytes in this island (not just first block to epilogue).  
+- The ptr to start of prec island. 
 
 [Wht to do with the virgin space in current island if new request is too full for an island but the island still has lots of virgin space?](#what-to-do-with-the-virgin-space-in-current-island-before-calling-mem_map)
 
 ### Prologue allocation
 
-**For the first mmapped island(i.e initial heap) you need to store the array of freelists after the segment struct.**
+#### For the first mmapped island(i.e initial heap) you need to store the island header after the array of freelists
 
-You want the static area (segment struct + Array) to end on an 8-byte offset (like say 136) so that the next 8-byte header pushes the payload onto a 16-byte alignment.
-
-You can add some padding to make it such that this is true.
+You want the static area (Array + island header) to end on an 8-byte offset so that the next 8-byte header pushes the payload onto a 16-byte alignment.
 
 **This way you dont need 8 byte padding inside each block to make the paylaod start 16byte aligned.**
-- Does 136 divide by 16? 136/16=8.5 No.
+- 17*8(arr of freelists) + 32(island header) = 168
+- Does 168 divide by 16? 168/16=10.5 No.
 - It has a remainder of 8.
 - This means your First Real Header will sit at an address ending in ...8.
 - Consequently, your First Real Payload will sit at ...8 + 8 = ...0 (16-byte aligned).
@@ -114,13 +113,15 @@ You can add some padding to make it such that this is true.
 The alignment is perfect.<br>
 You then increment `current_avail` past this so that allocations start after the prologue.
 
+#### For the rest of the islands you need a prologue block to make the firstblock header start at an 8byte offset
+
+Also this prologue block is what will help `free()` understand if the whole island is free and thus if it should return it to the OS- [free()](#how-we-mm_free)
+
+#### firstIsland epilpogue
+
 And you also set the `prev alloc` flag in the block that current_avail ptr points to.
 - So that when a new block is allocated it already knows if its predecessor block is allocated or free.
 - This ensures that when the first free block appears, it will never try to coalesce backward into the prologue.
-
-**Hence because of this we do not need a `prologue` block**
-- Make sure you are not overwriting the 3 blindly in `mm_malloc()`, you lose the information it contained.
-- Either store `|` the `blocksize` with whats already stored if allocating from current_avail or use proper masking to not overwrite the `prevalloc` flag.
 
 **In mm_init() i.e when we are initializing the heap we set the `prevalloc` flag (of the block `current_avail` is pointing to) to 1. But free() will take care of the prev alloc flag of the `current_avail` if last allocted block from `current_avail` gets freed by user. As when we free a block, the next block's `prevalloc` flag is switched.**
 
@@ -132,7 +133,7 @@ This ensures that any block sitting immediately before the wilderness sees a "wa
 
 #### `EPILOGUE SIZE`
 
-**Because we started our headers at an 8-byte offset, an 8-byte Epilogue is what is required to restore 16-byte alignment at the very end of the allocated region of the island.**
+**Because we started our block headers at an 8-byte offset, an 8-byte Epilogue is what is required to restore 16-byte alignment at the very end of the allocated region of the island.**
 
 - _`Hence the virgin space after the epilogue block in the island is always a multiple of 16.`_
 
@@ -144,10 +145,9 @@ When you map a new page when inital heap runs out, you simply need to make it "s
 
 You perform these steps on the NEW page:
 
-1\. Left Wall (Safety): The very first block in the new page MUST have its PREV_ALLOC bit set to 1.
-- Why? Because there is no valid memory before it. If a standard coalescing check looked backward, it would crash.
+1\. Left Wall (Safety): Make island header and prologue.
 
-2\. Right Wall (Epilogue): You MUST place a physical Epilogue header (Size:0, Alloc:1, PrevAlloc:?) at the very end of the new page. Just like we did with the `current_avail` in the previous page.
+2\. Right Wall (Epilogue): You MUST place a physical Epilogue header (Size:0, Alloc:1, PrevAlloc:1) right after island header.
 
 #### What to do with the virgin space in current island before calling mem_map()
 
@@ -160,9 +160,9 @@ If yes then:
 - Insert(LIFO) this free block in the suitable freelist.
 - Remember to place epilogue at the end. 
 
-### Header(blocksize) needs to be 8 bytes
+# Implementation
 
-Even though payload can be stored in an int, `prev` `next` `footer` overhead is there.
+[malloc and free implementation](#how-we-mm_malloc)
 
 ## Freelist
 
@@ -192,7 +192,7 @@ Hence, `min block size` = `32` bytes and this supports a payload of `24` bytes m
 
 3\. Splitting a block may need Re-categorization of split free block into a different list.
 
-### How we allocate.
+## How we mm_malloc()
 
 When we allocate a free block the ptr that we return to the user points to the start of the `prev` ptr in the free block(because we store `prev` before `next` in blocks). In this way we dont need a separate struct for allocated blocks just because we want to use the `prev` & `next` ptr space in the free block as payload as well as the footer.
 
@@ -203,6 +203,9 @@ To minimize fragmentation and avoid wasting memory, the allocator should:
 
 2\) Only allocate from `current_avail` region is no suitable free block exists.
 - This grows the heap only when reuse is impossible. 
+
+## How we mm_free()
+
 
 
 
