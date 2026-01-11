@@ -57,6 +57,7 @@ typedef struct block_t {
 
 island_t* first_island = NULL; /* always poinst to start of whole heap */
 island_t* active_island = NULL; /* always points to the last island that was mmapped*/
+island_t* spare_island = NULL;
 void* freeArrPtr = NULL;
 
 /* My helper functions */
@@ -97,13 +98,12 @@ int mm_init(void)
   first_island = island_header;
   island_header->next_island = NULL;
   island_header->prev_island = NULL;
-  island_header->size = current_avail_size;
+  island_header->size = current_avail_size + list_bytes;
   /* **In free() cmp prologue with FIRSTISLAND to check if we are in first_island */
   /*---------------------------------------*/
   island_header->magic_number = FIRSTISLAND;
   /*---------------------------------------*/
 
-  /* Store first block offset in island header and store it in a global */
   int hsize = sizeof(island_t);
   active_island = island_header; /* will be useful to link the islands */
 
@@ -267,8 +267,8 @@ void *mm_malloc(size_t size)
         island_t* newIslandHeader = (island_t*)newIslandptr;
         newIslandHeader->size = newIslandsize;
         newIslandHeader->next_island = NULL;
-        newIslandHeader->prev_island = active_island;
         newIslandHeader->magic_number = NORMISLAND;
+        newIslandHeader->prev_island = active_island;
         active_island->next_island = newIslandptr; // link this island to previously active one
         active_island = newIslandHeader; // update the active_island to point to this current one
 
@@ -372,11 +372,11 @@ inline void freelistUnlink(block_t* chosenblock, int index)
   block_t* prevblock = (block_t*)chosenblock->prev;
   block_t* nextblock = (block_t*)chosenblock->next;
   if (prevblock != NULL) {
-    prevblock->next = (void*)nextblock;
+    prevblock->next = (void*)chosenblock->next;
   } else // i.e if chosenblock is head of freelist
-      seg_list[index] = (void*)nextblock;
+      seg_list[index] = (void*)chosenblock->next;
   if (nextblock != NULL) {
-    nextblock->prev = (void*)prevblock;
+    nextblock->prev = (void*)chosenblock->prev;
   }
 }
 
@@ -456,12 +456,13 @@ void mm_free(void *ptr)
     - mem_unmap() can also be used for memory optimization to reduce total size of pages used 
       by your allocator at a point(increases utilization score).
   */
+
   if (ptr == NULL) return;
   
-  block_t* block = (block_t*)((char*)ptr - HSIZE); /* ptr points to start of payload */
+  block_t* block = (block_t*)((char*)ptr - HSIZE); // ptr points to start of payload 
   size_t blocksize = block->blocksize & ~0xF;
   if (blocksize > 4*(1<<20)-32) { // standalone large block
-    mem_unmap((char*)ptr - 2*HSIZE/*blockheader + padding*/, *(size_t*)((char*)ptr - 2*HSIZE)/*chonksize*/);
+    mem_unmap((char*)ptr - 2*HSIZE, *(size_t*)((char*)ptr - 2*HSIZE));
     return;
   }
 
@@ -486,32 +487,43 @@ void mm_free(void *ptr)
   coalesce_block->blocksize = coalesce_blocksize | (coalesce_block->blocksize & PREVALLOC); // Preserves PREVALLOC, forces ALLOC to 0
   *(size_t*)((char*)coalesce_block + coalesce_blocksize) &= ~PREVALLOC; // clear prevalloc flag of coalesce block's successor block
   *(size_t*)((char*)coalesce_block + coalesce_blocksize - HSIZE) = coalesce_block->blocksize; // make footer
-  
+  /*
   // now check if whole island was freed (munmap() optimization)
   size_t potprolog = *(size_t*)((char*)coalesce_block - HSIZE);
   size_t potepilog = *(size_t*)((char*)coalesce_block + coalesce_blocksize);
   int whole = 0;
-  if (!(potprolog & ~0xF) && !(potepilog & ~0xF))
+  if (!((potprolog & ~0xF)+(potepilog & ~0xF)))
     whole = 1;
+    
   if (whole) {
-    island_t* isl_header = (island_t*)((char*)coalesce_block - HSIZE/*prologue*/ - sizeof(island_t));
-    // unlink from islands linkedlist and return to os
+    island_t* isl_header = (island_t*)((char*)coalesce_block - HSIZE - sizeof(island_t));
+    // unlink from islands linkedlist and return to os if islandsize < spareislandsize 
+    // if islandsize > spareislandsize or spareisland == NULL, cache this island.
+
     island_t* next_isl = (island_t*)isl_header->next_island; 
     island_t* prev_isl = (island_t*)isl_header->prev_island; 
 
-    // Since we know it's not first_island, prev_isl is guaranteed NOT NULL
-    prev_isl->next_island = isl_header->next_island;
-    
-    if (next_isl != NULL) {
-      next_isl->prev_island = isl_header->prev_island;
+    if (isl_header != active_island) { 
+      // Since we know it's not first_island, prev_isl is guaranteed NOT NULL
+      if (prev_isl != NULL)
+        prev_isl->next_island = isl_header->next_island;
+      
+      if (next_isl != NULL) {
+        next_isl->prev_island = isl_header->prev_island;
+      }
+      mem_unmap((void*)isl_header, isl_header->size);
+      return;
     }
-    mem_unmap((void*)isl_header, isl_header->size);
-    return;
   }
+  */
+
   // else insert into a freelist
   int newIndex = 0;
   findIndex(coalesce_blocksize, &newIndex, NULL);
   LIFO_insert(coalesce_block, newIndex);
+  // update the prevalloc flag of successor block
+  size_t* succblockHeader = (size_t*)((char*)coalesce_block + coalesce_blocksize);
+  *succblockHeader = (*succblockHeader) & ~PREVALLOC; 
 }
 
 /*
