@@ -75,6 +75,7 @@ inline void splitAndInsert(block_t* block, size_t asize, size_t fragmentSize);
 inline void LIFO_insert(block_t* newFreeblock, int newIndex);
 inline void findIndex(size_t asize, int* index, int* toobig);
 int my_check();
+int check_freelists();
 
 /* 
  * mm_init - initialize the malloc package.
@@ -537,6 +538,25 @@ void mm_free(void *ptr)
 /* My heap_checker so that dont hv to write mm_can_free() yet */
 int my_check() // check the whole heap at any point in time
 {
+  // start from first island until NULL 
+  /* check blocks in every island i.e if they have proper structure
+      - i.e no physical overlap in allocated blocks
+      - freeblock block structure is correct
+  */
+
+
+}
+
+/* This will check the logical integrity of the freelists */
+int check_freelists()
+{
+  /* Check all the freelists to chekc if there was logical overlap
+     or if there was improper accounting(no. of freebocks counter in
+     physical scan dont match with actual number of freeblocks)
+     Also check for cycles.
+     Also check if a freeblock really belongs in a particular freelist
+  */
+
 
 }
 
