@@ -32,6 +32,14 @@
 void *current_avail = NULL;
 int current_avail_size = 0; 
 
+/* rounds down to the nearest multiple of mem_pagesize() */
+#define ADDRESS_PAGE_START(p) ((void *)(((size_t)p) & ~(mem_pagesize()-1)))
+
+int ptr_is_mapped(void *p, size_t len) {
+  void *s = ADDRESS_PAGE_START(p);
+  return mem_is_mapped(s, PAGE_ALIGN((p + len) - s));
+}
+
 /* My globals */
 
 #define listqty 17
@@ -66,7 +74,7 @@ inline void freelistUnlink(block_t* chosenblock, int index);
 inline void splitAndInsert(block_t* block, size_t asize, size_t fragmentSize);
 inline void LIFO_insert(block_t* newFreeblock, int newIndex);
 inline void findIndex(size_t asize, int* index, int* toobig);
-
+int my_check();
 
 /* 
  * mm_init - initialize the malloc package.
@@ -524,6 +532,12 @@ void mm_free(void *ptr)
   // update the prevalloc flag of successor block
   size_t* succblockHeader = (size_t*)((char*)coalesce_block + coalesce_blocksize);
   *succblockHeader = (*succblockHeader) & ~PREVALLOC; 
+}
+
+/* My heap_checker so that dont hv to write mm_can_free() yet */
+int my_check() // check the whole heap at any point in time
+{
+
 }
 
 /*
