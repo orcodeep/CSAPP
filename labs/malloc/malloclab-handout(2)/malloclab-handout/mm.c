@@ -68,6 +68,8 @@ island_t* active_island = NULL; /* always points to the last island that was mma
 island_t* spare_island = NULL;
 void* freeArrPtr = NULL;
 
+size_t fbCounter = 0;
+
 /* My helper functions */
 inline void* unlinkAllocReinsert(block_t* chosenblock, size_t blocksize, size_t asize, int index);
 inline void freelistUnlink(block_t* chosenblock, int index);
@@ -544,6 +546,15 @@ int my_check() // check the whole heap at any point in time
       - freeblock block structure is correct
   */
 
+  island_t* current_island = first_island;
+  int blkOffset = sizeof(island_t);
+
+  while(current_island != NULL) {
+    block_t* current_block = (block_t*)((char*)current_island + blkOffset);
+    
+    // check ptrs before treating it as a block
+    
+  }
 
 }
 
